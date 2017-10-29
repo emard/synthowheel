@@ -59,7 +59,7 @@ architecture RTL of rds is
       return y;
     end F_freq_table;
     constant C_freq_table_len: integer := 2**C_freq_bits;
-    constant C_freq_table: T_freq_table := F_freq_table(C_freq_table_len, C_tones_per_octave); -- wave table initializer len, freq
+    constant C_freq_table: T_freq_table := F_freq_table(C_voice_table_len, C_tones_per_octave, C_freq_bits); -- wave table initializer len, freq
 
     signal R_voice, S_tb_inc_addr: std_logic_vector(C_voice_addr_bits-1 downto 0); -- currently processed voice, destination of increment
     signal S_tb_addr_current, S_tb_addr_next: std_logic_vector(C_wav_table_len-1 downto 0); -- current and next timebase
