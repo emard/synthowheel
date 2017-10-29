@@ -31,7 +31,6 @@ port (
 end rds;
 
 architecture RTL of rds is
-    constant C_voice_table_len: integer := 2**C_voice_addr_bits;
     constant C_wav_table_len: integer := 2**C_voice_time_bits;
     type T_wav_table is array (0 to C_wav_table_len-1) of signed(C_wav_data_bits-1 downto 0);
     function F_wav_table(len: integer, bits: integer)
@@ -47,6 +46,7 @@ architecture RTL of rds is
     constant C_wav_table: T_wav_table := F_wav_table(C_wav_table_len, C_wav_data_bits); -- wave table initializer len, amplitude
     
     -- the data type and initializer for the frequencies table
+    constant C_voice_table_len: integer := 2**C_voice_addr_bits;
     type T_freq_table is array (0 to C_voice_table_len-1) of std_logic_vector(C_freq_bits-1 downto 0);
     function F_freq_table(len: integer, tones_per_octave: integer, bits: integer)
       return T_freq_table is
@@ -60,7 +60,26 @@ architecture RTL of rds is
     end F_freq_table;
     constant C_freq_table_len: integer := 2**C_freq_bits;
     constant C_freq_table: T_freq_table := F_freq_table(C_voice_table_len, C_tones_per_octave, C_freq_bits); -- wave table initializer len, freq
-
+    
+    -- the voice volume constant array for testing
+    type T_voice_vol_table is array (0 to C_voice_table_len-1) of std_logic_vector(C_voice_vol_bits-1 downto 0);
+    function F_voice_vol_table(len: integer, bits: integer)
+      return T_voice_vol_table is
+        variable i: integer;
+        variable y: T_voice_vol_table
+    begin
+      for i in 0 to len - 1 loop
+        if i = 20 then
+          y(i) := 2**C_voice_vol_bits-1; -- one voice max volume
+        else
+          y(i) := 0; -- others kuted
+        end if;
+      end loop;
+      return y;
+    end F_voice_vol_table;
+    -- constant C_voice_vol_table_len: integer := 2**C_freq_bits;
+    constant C_voice_vol_table: T_voice_vol_table := F_voice_vol_table(C_voice_table_len, C_voice_vol_bits); -- vol table for testing
+ 
     signal R_voice, S_tb_inc_addr: std_logic_vector(C_voice_addr_bits-1 downto 0); -- currently processed voice, destination of increment
     signal S_tb_addr_current, S_tb_addr_next: std_logic_vector(C_wav_table_len-1 downto 0); -- current and next timebase
     signal S_tb_rd_vol: signed(C_voice_vol_bits-1 downto 0); -- current volume
@@ -88,9 +107,9 @@ begin
 
     -- voice volume reading
     -- get from addressed BRAM the volume of current voice
-    S_voice_vol <= (others => '0'); -- connect to bram read output, address R_Voice
+    S_voice_vol <= C_voice_vol_table(R_voice); -- connect to bram read output, address R_Voice
     -- waveform data reading
-    S_wav_data <= (others => '0'); -- connect to bram timebase read output, address S_tb_addr_current;
+    S_wav_data <= C_wav_table(R_tb_addr_current); -- todo: connect to bram timebase read output, address S_tb_addr_current;
 
     -- multiply it registered and add to accumulator
     process(clk)
