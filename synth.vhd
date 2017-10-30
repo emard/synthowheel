@@ -70,7 +70,6 @@ architecture RTL of synth is
     begin
       for i in 0 to len - 1 loop
         y(i) := to_signed(integer(sin(real(i)*2.0*3.141592653589793/real(len)) * (2.0**real(bits-1)-1.0)), C_wav_data_bits); -- converts sinewave floats to signed number
-        -- y(i) := to_signed(sin(10), C_wav_data_bits);
       end loop;
       return y;
     end F_wav_table;
