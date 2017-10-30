@@ -34,8 +34,8 @@ begin
             -- for purpose of PCM generation here is
             -- conversion to unsigned std_logic_vector
             -- by inverting MSB bit (effectively adding 0x8000)
-            R_pcm_unsigned_data_l <= std_logic_vector( (not in_pcm_data_l(15)) & in_pcm_data_l(14 downto 0) );
-            R_pcm_unsigned_data_r <= std_logic_vector( (not in_pcm_data_r(15)) & in_pcm_data_r(14 downto 0) );
+            R_pcm_unsigned_data_l <= std_logic_vector( (not in_pcm_l(15)) & in_pcm_l(14 downto 0) );
+            R_pcm_unsigned_data_r <= std_logic_vector( (not in_pcm_r(15)) & in_pcm_r(14 downto 0) );
 	    -- Output 1-bit DAC
 	    R_dac_acc_l <= (R_dac_acc_l(16) & R_pcm_unsigned_data_l) + R_dac_acc_l;
 	    R_dac_acc_r <= (R_dac_acc_r(16) & R_pcm_unsigned_data_r) + R_dac_acc_r;
