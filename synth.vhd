@@ -15,10 +15,10 @@ entity synth is
 generic (
     C_voice_addr_bits: integer := 8; -- 8: 256 voices (counters, volume multipliers)
     C_voice_vol_bits: integer := 16; -- 16: 16-bit signed data for volume
-    C_voice_time_bits: integer := 10;  -- 10: 10-bit unsigned data for time base
+    C_wav_addr_bits: integer := 10;  -- 10: 10-bit unsigned data for time base
     C_wav_data_bits: integer := 16;
     C_freq_bits: integer := 32; -- 32 bits for array data of freqs (timebase addition constants)
-    C_accu_data: integer := C_freq_bits+C_voice_time_bits; -- good enough accumulator register width
+    C_accu_data: integer := C_freq_bits+C_wav_addr_bits; -- good enough accumulator register width
     C_tones_per_octave: integer := 16;
     C_out_data: integer := 16 -- 16-bit of signed accumulator data (PCM)
 );
@@ -31,7 +31,7 @@ port (
 end rds;
 
 architecture RTL of rds is
-    constant C_wav_table_len: integer := 2**C_voice_time_bits;
+    constant C_wav_table_len: integer := 2**C_wav_addr_bits;
     type T_wav_table is array (0 to C_wav_table_len-1) of signed(C_wav_data_bits-1 downto 0);
     function F_wav_table(len: integer, bits: integer)
       return T_wav_table is
@@ -99,16 +99,15 @@ begin
     -- R_voice contains current address of the voice amplitude and frequency table
 
     -- time base increments
-    -- increment the time base array (in the BRAM?)
-    S_tb_read_data <= (others => '0'); -- TODO read current timebase from BRAM at R_voice address
-    -- next value to be written on previous address
+    -- increment the time base array in the BRAM
     S_tb_write_data <= S_tb_read_data + C_freq_table(R_voice); -- next time base incremented with frequency
-    S_tb_write_addr <= R_voice - 1; -- destination addr is the one before
+    -- next value is written on previous address to match register pipeline latency
+    S_tb_write_addr <= R_voice - 1;
     timebase_bram: entity work.bram_true2p_1clk
     generic map (
         dual_port => true,
-        data_width => C_freq_bits,
-        addr_width => C_voice_addr_bits
+        addr_width => C_voice_addr_bits,
+        data_width => C_freq_bits
     )
     port map (
         clk => clk,
@@ -125,7 +124,7 @@ begin
     -- get from addressed BRAM the volume of current voice
     S_voice_vol <= C_voice_vol_table(R_voice); -- connect to bram read output, address R_Voice
     -- waveform data reading
-    S_wav_data <= C_wav_table(S_tb_read_data); -- todo: connect to bram timebase read output, address S_tb_addr_read;
+    S_wav_data <= C_wav_table(S_tb_read_data(C_freq_bits-1 downto C_freq_bits-C_wav_addr_bits));
 
     -- multiply, store result to register and add register to accumulator
     process(clk)
