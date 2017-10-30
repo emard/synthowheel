@@ -27,13 +27,12 @@ generic
 port
 (
   clk: in std_logic;
-  addr: out std_logic_vector(c_addr_bits-1 downto 0); -- memory address
-  data: in std_logic_vector(7 downto 0); -- memory data 8 bit
   pcm_out: out signed(15 downto 0) -- to audio output
 );
-end rds;
+end;
 
-architecture RTL of rds is
+architecture RTL of synth is
+    -- TODO:
     -- meantone temperament:
     -- see https://en.wikipedia.org/wiki/Semitone
     -- and https://en.wikipedia.org/wiki/Chromatic_scale
@@ -126,7 +125,6 @@ begin
     end process;
     -- R_voice contains current address of the voice amplitude and frequency table
 
-    -- time base increments
     -- increment the time base array in the BRAM
     S_tb_write_data <= S_tb_read_data + C_freq_table(R_voice); -- next time base incremented with frequency
     -- next value is written on previous address to match register pipeline latency
