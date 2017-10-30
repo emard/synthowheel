@@ -19,8 +19,6 @@ generic
   C_wav_addr_bits: integer := 8;  -- 10: 10-bit unsigned data for time base
   C_wav_data_bits: integer := 4;
   C_timebase_var_bits: integer := 12; -- 32 bits for array data of timebase BRAM memory for addition
-  C_timebase_const_bits: integer := C_timebase_var_bits-C_wav_addr_bits; -- bits for timebase addition constants
-  C_accu_data: integer := C_timebase_var_bits+C_voice_addr_bits; -- hopfully good enough accumulator register width
   C_tones_per_octave: integer := 12;
   C_out_data: integer := 16 -- 16-bit of signed accumulator data (PCM)
 );
@@ -60,15 +58,19 @@ architecture RTL of synth is
     -- C	D♭	C♯		D 	E♭ 	D♯ 		E 	F 	F♯ 		G♭ 	G 	A♭ 	G♯		A 	B♭ 	A♯ 		B 	C
     -- 1 	256/243 2187/2048 	9/8 	32/27 	8192/6561 	81/64 	4/3 	1024/729 	729/512 3/2 	128/81 	6561/4096 	27/16 	16/9 	4096/2187 	243/128 2
 
+    constant C_timebase_const_bits: integer := C_timebase_var_bits-C_wav_addr_bits; -- bits for timebase addition constants
+    constant C_accu_data: integer := C_timebase_var_bits+C_voice_addr_bits+C_wav_addr_bits; -- hopfully good enough accumulator register width
+
     constant C_wav_table_len: integer := 2**C_wav_addr_bits;
     type T_wav_table is array (0 to C_wav_table_len-1) of signed(C_wav_data_bits-1 downto 0);
-    function F_wav_table(len: integer, bits: integer)
+    function F_wav_table(len: integer; bits: integer)
       return T_wav_table is
         variable i: integer;
-        variable y: T_wav_table
+        variable y: T_wav_table;
     begin
       for i in 0 to len - 1 loop
-        y(i) := to_signed(sin(i*2*3.141592653589793/len)*(2**(bits-1)-1)); -- converts sinewave floats to signed number
+        -- y(i) := to_signed(sin(i*2*3.141592653589793/len)*(2**(bits-1)-1)); -- converts sinewave floats to signed number
+        y(i) := to_signed(2, C_wav_data_bits);
       end loop;
       return y;
     end F_wav_table;
@@ -76,14 +78,15 @@ architecture RTL of synth is
     
     -- the data type and initializer for the frequencies table
     constant C_voice_table_len: integer := 2**C_voice_addr_bits;
-    type T_freq_table is array (0 to C_voice_table_len-1) of std_logic_vector(C_timebase_const_bits-1 downto 0);
-    function F_freq_table(len: integer, tones_per_octave: integer, bits: integer)
+    type T_freq_table is array (0 to C_voice_table_len-1) of unsigned(C_timebase_const_bits-1 downto 0);
+    function F_freq_table(len: integer; tones_per_octave: integer; bits: integer)
       return T_freq_table is
         variable i: integer;
-        variable y: T_freq_table
+        variable y: T_freq_table;
     begin
       for i in 0 to len - 1 loop
-        y(i) := to_unsigned(2**(1.0*i/tones_per_octave) * 2**(bits-1.0*len/tones_per_octave) ); -- converts tuning table floats to signed number
+        -- y(i) := to_unsigned(2**(1.0*i/tones_per_octave) * 2**(bits-1.0*len/tones_per_octave) ); -- converts tuning table floats to signed number
+        y(i) := to_unsigned(2, C_timebase_const_bits);
       end loop;
       return y;
     end F_freq_table;
@@ -92,26 +95,26 @@ architecture RTL of synth is
 
     -- the voice volume constant array for testing
     -- replace this ith dual port BRAM where CPU writes and synth reads values
-    type T_voice_vol_table is array (0 to C_voice_table_len-1) of std_logic_vector(C_voice_vol_bits-1 downto 0);
-    function F_voice_vol_table(len: integer, bits: integer)
+    type T_voice_vol_table is array (0 to C_voice_table_len-1) of signed(C_voice_vol_bits-1 downto 0);
+    function F_voice_vol_table(len: integer; bits: integer)
       return T_voice_vol_table is
         variable i: integer;
-        variable y: T_voice_vol_table
+        variable y: T_voice_vol_table;
     begin
       for i in 0 to len - 1 loop
         if i = 1 then -- condition to which voices to enable
-          y(i) := 2**C_voice_vol_bits-1; -- one voice max volume
+          y(i) := to_signed(2**C_voice_vol_bits-1, C_voice_vol_bits); -- one voice max volume
         else
-          y(i) := 0; -- others muted
+          y(i) := to_signed(0, C_voice_vol_bits); -- others muted
         end if;
       end loop;
       return y;
     end F_voice_vol_table;
     constant C_voice_vol_table: T_voice_vol_table := F_voice_vol_table(C_voice_table_len, C_voice_vol_bits); -- vol table for testing
     signal R_voice, S_tb_write_addr: std_logic_vector(C_voice_addr_bits-1 downto 0); -- currently processed voice, destination of increment
-    signal S_tb_read_data, S_tb_write_data: std_logic_vector(C_wav_table_len-1 downto 0); -- current and next timebase
-    signal S_voice_vol: std_logic_vector(C_voice_vol_bits-1 downto 0);
-    signal S_wav_data: signed(C_wav_data-1 downto 0);
+    signal S_tb_read_data, S_tb_write_data: std_logic_vector(C_timebase_var_bits-1 downto 0); -- current and next timebase
+    signal S_voice_vol: signed(C_voice_vol_bits-1 downto 0);
+    signal S_wav_data: signed(C_wav_data_bits-1 downto 0);
     signal R_multiplied: signed(C_voice_vol_bits+C_wav_data_bits-1 downto 0);
     signal R_accu: signed(C_accu_data-1 downto 0);
     signal R_output: signed(C_out_data-1 downto 0);
@@ -126,7 +129,7 @@ begin
     -- R_voice contains current address of the voice amplitude and frequency table
 
     -- increment the time base array in the BRAM
-    S_tb_write_data <= S_tb_read_data + C_freq_table(R_voice); -- next time base incremented with frequency
+    S_tb_write_data <= S_tb_read_data + to_integer(C_freq_table(conv_integer(R_voice))); -- next time base incremented with frequency
     -- next value is written on previous address to match register pipeline latency
     S_tb_write_addr <= R_voice - 1;
     timebase_bram: entity work.bram_true2p_1clk
@@ -146,13 +149,12 @@ begin
         addr_b => R_voice,
         data_out_b => S_tb_read_data
     );
-    end generate;
 
     -- voice volume reading
     -- get from addressed BRAM the volume of current voice
-    S_voice_vol <= C_voice_vol_table(R_voice); -- connect to bram read output, address R_Voice
+    S_voice_vol <= C_voice_vol_table(conv_integer(R_voice)); -- connect to bram read output, address R_Voice
     -- waveform data reading
-    S_wav_data <= C_wav_table(S_tb_read_data(C_timebase_var_bits-1 downto C_timebase_var_bits-C_wav_addr_bits));
+    S_wav_data <= C_wav_table(conv_integer(S_tb_read_data(C_timebase_var_bits-1 downto C_timebase_var_bits-C_wav_addr_bits)));
 
     -- multiply, store result to register and add register to accumulator
     process(clk)
@@ -161,7 +163,7 @@ begin
         R_multiplied <= S_voice_vol * S_wav_data;
         if R_voice = 0 then
           R_output <= R_accu(C_accu_data-1 downto C_accu_data-C_out_data);
-          R_accu <= 0; -- reset accumulator
+          R_accu <= (others => '0'); -- reset accumulator
         else
           R_accu <= R_accu + R_multiplied;
         end if;
