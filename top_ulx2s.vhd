@@ -12,7 +12,7 @@ use IEEE.MATH_REAL.ALL;
 library xp2;
 use xp2.components.all;
 
-entity toplevel is
+entity top_synth is
   generic (
     C_clk_freq: integer := 25;
     C_pcm: boolean := true
@@ -31,12 +31,13 @@ entity toplevel is
     j2_2, j2_3, j2_4, j2_5, j2_6, j2_7, j2_8, j2_9: inout std_logic;
     j2_10, j2_11, j2_12, j2_13, j2_16: inout std_logic
   );
-end toplevel;
+end;
 
-architecture Behavioral of toplevel is
+architecture Behavioral of top_synth is
   signal clk: std_logic;
   signal btn: std_logic_vector(4 downto 0);
   signal S_pcm: signed(16 downto 0);
+  signal S_out_l, S_out_r: std_logic;
 begin
   clk <= clk_25m;
   btn <= btn_left & btn_right & btn_up & btn_down & btn_center;
@@ -53,4 +54,16 @@ begin
 --      pcm_out => S_pcm
 --    );
 
+    inst_pcm: entity work.pcm
+    port map
+    (
+        clk => clk,
+        in_pcm_l => S_pcm,
+        in_pcm_r => S_pcm,
+        out_l => S_out_l,
+        out_r => S_out_r
+    );
+
+    p_tip <= S_out_l;
+    p_ring <= (others => S_out_r);
 end Behavioral;
