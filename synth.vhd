@@ -60,8 +60,9 @@ architecture RTL of rds is
     end F_freq_table;
     constant C_freq_table_len: integer := 2**C_freq_bits;
     constant C_freq_table: T_freq_table := F_freq_table(C_voice_table_len, C_tones_per_octave, C_freq_bits); -- wave table initializer len, freq
-    
+
     -- the voice volume constant array for testing
+    -- replace this ith dual port BRAM where CPU writes and synth reads values
     type T_voice_vol_table is array (0 to C_voice_table_len-1) of std_logic_vector(C_voice_vol_bits-1 downto 0);
     function F_voice_vol_table(len: integer, bits: integer)
       return T_voice_vol_table is
@@ -72,7 +73,7 @@ architecture RTL of rds is
         if i = 20 then
           y(i) := 2**C_voice_vol_bits-1; -- one voice max volume
         else
-          y(i) := 0; -- others kuted
+          y(i) := 0; -- others muted
         end if;
       end loop;
       return y;
@@ -80,9 +81,8 @@ architecture RTL of rds is
     -- constant C_voice_vol_table_len: integer := 2**C_freq_bits;
     constant C_voice_vol_table: T_voice_vol_table := F_voice_vol_table(C_voice_table_len, C_voice_vol_bits); -- vol table for testing
  
-    signal R_voice, S_tb_inc_addr: std_logic_vector(C_voice_addr_bits-1 downto 0); -- currently processed voice, destination of increment
-    signal S_tb_addr_current, S_tb_addr_next: std_logic_vector(C_wav_table_len-1 downto 0); -- current and next timebase
-    signal S_tb_rd_vol: signed(C_voice_vol_bits-1 downto 0); -- current volume
+    signal R_voice, S_tb_write_addr: std_logic_vector(C_voice_addr_bits-1 downto 0); -- currently processed voice, destination of increment
+    signal S_tb_read_data, S_tb_write_data: std_logic_vector(C_wav_table_len-1 downto 0); -- current and next timebase
     signal S_voice_vol: std_logic_vector(C_voice_vol_bits-1 downto 0);
     signal S_wav_data: signed(C_wav_data-1 downto 0);
     signal R_multiplied: signed(C_voice_vol_bits+C_wav_data_bits-1 downto 0);
@@ -97,21 +97,37 @@ begin
       end if;
     end process;
     -- R_voice contains current address of the voice amplitude and frequency table
-    
+
     -- time base increments
     -- increment the time base array (in the BRAM?)
-    S_tb_addr_current <= (others => '0'); -- TODO read current timebase from BRAM at R_voice address
+    S_tb_read_data <= (others => '0'); -- TODO read current timebase from BRAM at R_voice address
     -- next value to be written on previous address
-    S_tb_addr_next <= S_tb_addr_current + C_freq_table(R_voice); -- next time base incremented with frequency
-    S_tb_inc_addr <= R_voice - 1; -- destination addr is the one before
+    S_tb_write_data <= S_tb_read_data + C_freq_table(R_voice); -- next time base incremented with frequency
+    S_tb_write_addr <= R_voice - 1; -- destination addr is the one before
+    timebase_bram: entity work.bram_true2p_1clk
+    generic map (
+        dual_port => true,
+        data_width => C_freq_bits,
+        addr_width => C_voice_addr_bits
+    )
+    port map (
+        clk => clk,
+        we_a => '1', -- always write increments
+        addr_a => S_tb_write_addr,
+        data_in_a => S_tb_write_data,
+        we_b => '0', -- always read 
+        addr_b => R_voice,
+        data_out_b => S_tb_read_data
+    );
+    end generate;
 
     -- voice volume reading
     -- get from addressed BRAM the volume of current voice
     S_voice_vol <= C_voice_vol_table(R_voice); -- connect to bram read output, address R_Voice
     -- waveform data reading
-    S_wav_data <= C_wav_table(R_tb_addr_current); -- todo: connect to bram timebase read output, address S_tb_addr_current;
+    S_wav_data <= C_wav_table(S_tb_read_data); -- todo: connect to bram timebase read output, address S_tb_addr_read;
 
-    -- multiply it registered and add to accumulator
+    -- multiply, store result to register and add register to accumulator
     process(clk)
     begin
       if rising_edge(clk) then
