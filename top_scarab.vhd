@@ -31,34 +31,45 @@ architecture Behavioral of top_synth is
   signal btn: std_logic_vector(4 downto 0);
   signal S_pcm: signed(15 downto 0);
   signal S_out_l, S_out_r: std_logic;
+  signal R_buzzer: signed(16 downto 0); -- tone generator for testing
+  signal S_led: std_logic_vector(7 downto 0);
 begin
   clk <= clk_50MHz;
   
   rs232_tx <= '1';
   
-  leds(3 downto 0) <= sw;
-  leds(7 downto 4) <= (others => '1');
-
   inst_synth: entity work.synth
     generic map (
-      C_voice_addr_bits => 2,
+      C_voice_addr_bits => 7,
       C_out_data => 16
     )
     port map (
       clk => clk,
+      led => S_led,
       pcm_out => S_pcm
     );
 
+  --leds <= std_logic_vector(S_pcm(7 downto 0));
+  leds <= S_led;
+  
+  process(clk)
+  begin
+    if rising_edge(clk)
+    then
+      R_buzzer <= R_buzzer + 1;
+    end if;
+  end process;
+  
   inst_pcm: entity work.pcm
     port map
     (
         clk => clk,
         in_pcm_l => S_pcm,
-        in_pcm_r => S_pcm,
+        in_pcm_r => R_buzzer(R_buzzer'length-1 downto R_buzzer'length-16),
         out_l => S_out_l,
         out_r => S_out_r
     );
 
-  audio1 <= S_out_l;
-  audio2 <= S_out_r;
+  audio1 <= S_out_r;
+  audio2 <= S_out_l;
 end Behavioral;

@@ -14,17 +14,18 @@ use ieee.math_real.all;
 entity synth is
 generic
 (
-  C_voice_addr_bits: integer := 256; -- 8: 256 voices (counters, volume multipliers)
-  C_voice_vol_bits: integer := 4; -- 16: 16-bit signed data for volume
+  C_voice_addr_bits: integer := 7; -- 7: 128 voices (counters, volume multipliers)
+  C_voice_vol_bits: integer := 16; -- 16: 16-bit signed data for volume
   C_wav_addr_bits: integer := 10;  -- 10: 10-bit unsigned data for time base
-  C_wav_data_bits: integer := 4;
-  C_timebase_var_bits: integer := 12; -- 32 bits for array data of timebase BRAM memory for addition
+  C_wav_data_bits: integer := 16;
+  C_timebase_var_bits: integer := 24; -- 24 bits for array data of timebase BRAM memory for addition
   C_tones_per_octave: integer := 12;
   C_out_data: integer := 16 -- 16-bit of signed accumulator data (PCM)
 );
 port
 (
   clk: in std_logic;
+  led: out std_logic_vector(7 downto 0);
   pcm_out: out signed(15 downto 0) -- to audio output
 );
 end;
@@ -100,7 +101,7 @@ architecture RTL of synth is
         variable y: T_voice_vol_table;
     begin
       for i in 0 to len - 1 loop
-        if i = 1 or i = 250 then -- condition to which voices to enable
+        if i = 1 or i = 60 or i = 120 then -- condition to which voices to enable
           y(i) := to_signed(2**(C_voice_vol_bits-1)-1, C_voice_vol_bits); -- one voice max positive volume
         else
           y(i) := to_signed(0, C_voice_vol_bits); -- others muted
@@ -115,19 +116,24 @@ architecture RTL of synth is
     signal S_wav_data: signed(C_wav_data_bits-1 downto 0);
     signal R_multiplied: signed(C_voice_vol_bits+C_wav_data_bits-1 downto 0);
     signal R_accu: signed(C_accu_data-1 downto 0);
-    signal R_output: signed(C_out_data-1 downto 0);
+    signal R_output: signed(C_out_data-1 downto 0); 
+    signal R_led: std_logic_vector(7 downto 0); -- will appear to board LEDs
 begin
     -- increment voice number that is currently processed
     process(clk)
     begin
       if rising_edge(clk) then
         R_voice <= R_voice + 1;
+        if conv_integer(R_voice) = 1 then
+          R_led <= S_tb_read_data(S_tb_read_data'length-1 downto S_tb_read_data'length-8);
+        end if; 
       end if;
     end process;
     -- R_voice contains current address of the voice amplitude and frequency table
 
     -- increment the time base array in the BRAM
     S_tb_write_data <= S_tb_read_data + to_integer(C_freq_table(conv_integer(R_voice))); -- next time base incremented with frequency
+    -- S_tb_write_data <= S_tb_read_data + 1; -- debug: next time base incremented with frequency
     -- next value is written on previous address to match register pipeline latency
     S_tb_write_addr <= R_voice - 1;
     timebase_bram: entity work.bram_true2p_1clk
@@ -167,5 +173,7 @@ begin
         end if;
       end if;
     end process;
+    
+    led <= R_led;
 
 end;
