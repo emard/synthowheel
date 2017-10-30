@@ -14,9 +14,9 @@ use ieee.math_real.all;
 entity synth is
 generic
 (
-  C_voice_addr_bits: integer := 2; -- 8: 256 voices (counters, volume multipliers)
+  C_voice_addr_bits: integer := 256; -- 8: 256 voices (counters, volume multipliers)
   C_voice_vol_bits: integer := 4; -- 16: 16-bit signed data for volume
-  C_wav_addr_bits: integer := 8;  -- 10: 10-bit unsigned data for time base
+  C_wav_addr_bits: integer := 10;  -- 10: 10-bit unsigned data for time base
   C_wav_data_bits: integer := 4;
   C_timebase_var_bits: integer := 12; -- 32 bits for array data of timebase BRAM memory for addition
   C_tones_per_octave: integer := 12;
@@ -69,8 +69,8 @@ architecture RTL of synth is
         variable y: T_wav_table;
     begin
       for i in 0 to len - 1 loop
-        -- y(i) := to_signed(sin(i*2*3.141592653589793/len)*(2**(bits-1)-1)); -- converts sinewave floats to signed number
-        y(i) := to_signed(2, C_wav_data_bits);
+        y(i) := to_signed(integer(sin(real(i)*2.0*3.141592653589793/real(len)) * (2.0**real(bits-1)-1.0)), C_wav_data_bits); -- converts sinewave floats to signed number
+        -- y(i) := to_signed(sin(10), C_wav_data_bits);
       end loop;
       return y;
     end F_wav_table;
@@ -85,8 +85,7 @@ architecture RTL of synth is
         variable y: T_freq_table;
     begin
       for i in 0 to len - 1 loop
-        -- y(i) := to_unsigned(2**(1.0*i/tones_per_octave) * 2**(bits-1.0*len/tones_per_octave) ); -- converts tuning table floats to signed number
-        y(i) := to_unsigned(2, C_timebase_const_bits);
+        y(i) := to_unsigned(integer(2.0**(real(i)/real(tones_per_octave)) * 2.0**(real(bits)-real(len)/real(tones_per_octave))), C_timebase_const_bits);
       end loop;
       return y;
     end F_freq_table;
@@ -102,8 +101,8 @@ architecture RTL of synth is
         variable y: T_voice_vol_table;
     begin
       for i in 0 to len - 1 loop
-        if i = 1 then -- condition to which voices to enable
-          y(i) := to_signed(2**C_voice_vol_bits-1, C_voice_vol_bits); -- one voice max volume
+        if i = 1 or i = 250 then -- condition to which voices to enable
+          y(i) := to_signed(2**(C_voice_vol_bits-1)-1, C_voice_vol_bits); -- one voice max positive volume
         else
           y(i) := to_signed(0, C_voice_vol_bits); -- others muted
         end if;
