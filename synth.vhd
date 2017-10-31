@@ -18,7 +18,7 @@ generic
   C_voice_vol_bits: integer := 16; -- 16: 16-bit signed data for volume
   C_wav_addr_bits: integer := 10;  -- 10: 10-bit unsigned data for time base
   C_wav_data_bits: integer := 16;
-  C_timebase_var_bits: integer := 24; -- 24 bits for array data of timebase BRAM memory for addition
+  C_timebase_var_bits: integer := 20; -- 20 bits for array data of timebase BRAM memory for addition
   C_tones_per_octave: integer := 12;
   C_out_data: integer := 16 -- 16-bit of signed accumulator data (PCM)
 );
@@ -101,7 +101,7 @@ architecture RTL of synth is
         variable y: T_voice_vol_table;
     begin
       for i in 0 to len - 1 loop
-        if i = 1 or i = 60 or i = 120 then -- condition to which voices to enable
+        if i = 1 or i = 24 or i = 60 or i = 120 then -- which voices to enable
           y(i) := to_signed(2**(C_voice_vol_bits-1)-1, C_voice_vol_bits); -- one voice max positive volume
         else
           y(i) := to_signed(0, C_voice_vol_bits); -- others muted
@@ -124,8 +124,10 @@ begin
     begin
       if rising_edge(clk) then
         R_voice <= R_voice + 1;
-        if conv_integer(R_voice) = 1 then
-          R_led <= S_tb_read_data(S_tb_read_data'length-1 downto S_tb_read_data'length-8);
+        if conv_integer(R_voice) = 121 then
+          -- R_led <= S_tb_read_data(S_tb_read_data'length-1 downto S_tb_read_data'length-R_led'length);
+          -- R_led <= std_logic_vector(S_wav_data(S_wav_data'length-1 downto S_wav_data'length-R_led'length));
+          R_led <= std_logic_vector(R_multiplied(R_multiplied'length-1 downto R_multiplied'length-R_led'length));
         end if; 
       end if;
     end process;
