@@ -8,10 +8,13 @@ Each generator plays at different speed and volume, numerically
 tuned to octave and 12 halftone temperament, with time base
 derived from the stable quartz oscillator.
 
-Polyphonic synthesis is inspired by a set of multiple rotating wheels with
-electromagnetic pickups like found in Hammond. No intention is made to fully
-reproduce historic sound, but to produce a mathematically exact polyphonic synth
-with FPGA.
+Polyphonic synthesis is inspired by a set of multiple rotating
+[tonewheels](https://en.wikipedia.org/wiki/Tonewheel) with
+electromagnetic pickups like found in
+[Telharmonium](https://en.wikipedia.org/wiki/Telharmonium) or
+[Hammond](https://en.wikipedia.org/wiki/Hammond_organ).
+No intention is made to fully reproduce historic sound, but 
+to produce a mathematically described polyphonic synth with FPGA.
 
 At each clock cycle, a tuned frequency step is added to one of 128 phase accumulators,
 providing precise waveform time base for each generator. Normally it would be 
