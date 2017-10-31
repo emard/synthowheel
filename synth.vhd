@@ -21,7 +21,7 @@ generic
   C_shift_octave: integer := 6; -- bits shift pitch up by n octaves. improves tuning resolution but highest n octave waves will receive more coarse timestep 
   C_timebase_var_bits: integer := 32; -- bits for array data of timebase BRAM (phase accumulator)
   C_amplify: integer := 0; -- bits louder output but reduces max number of voices by 2^n (clipping)
-  C_tones_per_octave: integer := 12; -- tones per octave
+  C_tones_per_octave: integer := 12; -- tones per octave (don't touch)
   C_out_bits: integer := 16 -- bits of signed accumulator data (PCM)
 );
 port
@@ -33,26 +33,32 @@ port
 end;
 
 architecture RTL of synth is
-    -- TODO:
+
+    constant C_timebase_const_bits: integer := C_timebase_var_bits-C_wav_addr_bits+C_shift_octave; -- bits for timebase addition constants
+    constant C_accu_bits: integer := C_voice_vol_bits+C_wav_data_bits+C_voice_addr_bits-C_amplify-1; -- accumulator register width
+
     -- meantone temperament:
     -- see https://en.wikipedia.org/wiki/Semitone
     -- and https://en.wikipedia.org/wiki/Chromatic_scale
-    -- tone cents table, 0-1200 full octave of 12 tones
-    -- no pitch cents
-    --  0 C       0.0
-    --  1 C#     76.0
-    --  2 D     193.2
-    --  3 Eb    310.3
-    --  4 E     386.3
-    --  5 F     503.4
-    --  6 F#    579.5
-    --  7 G     696.6
-    --  8 G#    772.6
-    --  9 A     889.7
-    -- 10 Bb   1006.8
-    -- 11 B    1082.9
-    -- 12 C    1200.0
-
+    -- tone cents table f=2^(x/1200), 0-1200 scale for full octave of 12 tones
+    type T_halftone_temperament is array (0 to C_tones_per_octave-1) of real;
+    constant C_halftone_temperament: T_halftone_temperament :=
+    (
+         0.0, --  0 C
+        76.0, --  1 C#
+       193.2, --  2 D
+       310.3, --  3 Eb
+       386.3, --  4 E
+       503.4, --  5 F
+       579.5, --  6 F#
+       696.6, --  7 G
+       772.6, --  8 G#
+       889.7, --  9 A
+      1006.8, -- 10 Bb
+      1082.9  -- 11 B
+    );
+    
+    -- other temperaments (freq scale)
     -- just intonaton
     -- C	C♯	D♭	D	D♯	E♭	E	E♯/F♭	F	F♯	G♭	G	G♯	A♭	A	A♯	B♭	B	B♯/C♭	C
     -- 1 	25/24 	16/15 	9/8 	75/64 	6/5 	5/4 	32/25 	4/3 	25/18 	36/25 	3/2 	25/16 	8/5 	5/3 	125/72 	9/5 	15/8 	48/25 	2
@@ -60,11 +66,6 @@ architecture RTL of synth is
     -- pythagorean tuning
     -- C	D♭	C♯		D 	E♭ 	D♯ 		E 	F 	F♯ 		G♭ 	G 	A♭ 	G♯		A 	B♭ 	A♯ 		B 	C
     -- 1 	256/243 2187/2048 	9/8 	32/27 	8192/6561 	81/64 	4/3 	1024/729 	729/512 3/2 	128/81 	6561/4096 	27/16 	16/9 	4096/2187 	243/128 2
-
-    constant C_timebase_const_bits: integer := C_timebase_var_bits-C_wav_addr_bits+C_shift_octave; -- bits for timebase addition constants
-    constant C_accu_bits: integer := C_voice_vol_bits+C_wav_data_bits+C_voice_addr_bits-C_amplify-1; -- accumulator register width
-    
-    -- type T_halftone_temperament is array (0 to C_tones_per_octave-1) of real;
 
     constant C_wav_table_len: integer := 2**C_wav_addr_bits;
     type T_wav_table is array (0 to C_wav_table_len-1) of signed(C_wav_data_bits-1 downto 0);
