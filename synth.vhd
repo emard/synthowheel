@@ -166,6 +166,7 @@ begin
     process(clk)
     begin
       if rising_edge(clk) then
+        -- S_voice_vol must be signed, then max amplitude is 2x smaller
         R_multiplied <= S_voice_vol * S_wav_data;
         if R_voice = 0 then
           R_output <= R_accu(C_accu_data-1 downto C_accu_data-C_out_data);
@@ -177,5 +178,5 @@ begin
     end process;
     
     led <= R_led;
-
+    pcm_out <= R_accu(R_accu'length-1 downto R_accu'length-pcm_out'length);
 end;
