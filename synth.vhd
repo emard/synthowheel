@@ -15,10 +15,10 @@ entity synth is
 generic
 (
   C_voice_addr_bits: integer := 7; -- 7: 128 voices (counters, volume multipliers)
-  C_voice_vol_bits: integer := 16; -- 16: 16-bit signed data for volume
-  C_wav_addr_bits: integer := 10;  -- 10: 10-bit unsigned data for time base
-  C_wav_data_bits: integer := 16;
-  C_timebase_var_bits: integer := 20; -- 20 bits for array data of timebase BRAM memory for addition
+  C_voice_vol_bits: integer := 10; -- 10: 10-bit signed data for volume of each voice
+  C_wav_addr_bits: integer := 8;  -- 10: 10-bit unsigned address for time base
+  C_wav_data_bits: integer := 12;
+  C_timebase_var_bits: integer := 10; -- 10 bits for array data of timebase BRAM memory for addition
   C_tones_per_octave: integer := 12;
   C_out_data: integer := 16 -- 16-bit of signed accumulator data (PCM)
 );
@@ -60,7 +60,8 @@ architecture RTL of synth is
     -- 1 	256/243 2187/2048 	9/8 	32/27 	8192/6561 	81/64 	4/3 	1024/729 	729/512 3/2 	128/81 	6561/4096 	27/16 	16/9 	4096/2187 	243/128 2
 
     constant C_timebase_const_bits: integer := C_timebase_var_bits-C_wav_addr_bits; -- bits for timebase addition constants
-    constant C_accu_data: integer := C_timebase_var_bits+C_voice_addr_bits+C_wav_addr_bits; -- hopfully good enough accumulator register width
+    -- constant C_accu_data: integer := C_timebase_var_bits+C_voice_addr_bits+C_wav_addr_bits; -- hopfully good enough accumulator register width
+    constant C_accu_data: integer := C_voice_vol_bits+C_wav_data_bits; -- hopfully good enough accumulator register width
 
     constant C_wav_table_len: integer := 2**C_wav_addr_bits;
     type T_wav_table is array (0 to C_wav_table_len-1) of signed(C_wav_data_bits-1 downto 0);
@@ -70,7 +71,7 @@ architecture RTL of synth is
         variable y: T_wav_table;
     begin
       for i in 0 to len - 1 loop
-        y(i) := to_signed(integer(sin(real(i)*2.0*3.141592653589793/real(len)) * (2.0**real(bits-1)-1.0)), C_wav_data_bits); -- converts sinewave floats to signed number
+        y(i) := to_signed(integer(sin(2.0*3.141592653589793*real(i)/real(len)) * (2.0**real(bits-1)-1.0)), C_wav_data_bits); -- converts sinewave floats to signed number
       end loop;
       return y;
     end F_wav_table;
@@ -101,7 +102,7 @@ architecture RTL of synth is
         variable y: T_voice_vol_table;
     begin
       for i in 0 to len - 1 loop
-        if i = 1 or i = 24 or i = 60 or i = 120 then -- which voices to enable
+        if i = 119 or i = 120 then -- which voices to enable
           y(i) := to_signed(2**(C_voice_vol_bits-1)-1, C_voice_vol_bits); -- one voice max positive volume
         else
           y(i) := to_signed(0, C_voice_vol_bits); -- others muted
@@ -124,10 +125,11 @@ begin
     begin
       if rising_edge(clk) then
         R_voice <= R_voice + 1;
-        if conv_integer(R_voice) = 121 then
+        if conv_integer(R_voice) = 0 then
           -- R_led <= S_tb_read_data(S_tb_read_data'length-1 downto S_tb_read_data'length-R_led'length);
           -- R_led <= std_logic_vector(S_wav_data(S_wav_data'length-1 downto S_wav_data'length-R_led'length));
-          R_led <= std_logic_vector(R_multiplied(R_multiplied'length-1 downto R_multiplied'length-R_led'length));
+          -- R_led <= std_logic_vector(R_multiplied(R_multiplied'length-1 downto R_multiplied'length-R_led'length));
+          R_led <= std_logic_vector(R_accu(R_accu'length-1 downto R_accu'length-R_led'length));
         end if; 
       end if;
     end process;
@@ -167,6 +169,7 @@ begin
     begin
       if rising_edge(clk) then
         -- S_voice_vol must be signed, then max amplitude is 2x smaller
+        -- count this into designing R_accu large enough to avoid clipping
         R_multiplied <= S_voice_vol * S_wav_data;
         if R_voice = 0 then
           R_output <= R_accu(C_accu_data-1 downto C_accu_data-C_out_data);
