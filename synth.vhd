@@ -14,15 +14,15 @@ use ieee.math_real.all;
 entity synth is
 generic
 (
-  C_voice_addr_bits: integer := 7; -- 7: 128 voices (timebase counters, volume multipliers)
-  C_voice_vol_bits: integer := 10; -- 10: 10-bit signed data for volume of each voice
-  C_wav_addr_bits: integer := 8;  -- 8: 8-bit unsigned address for time base
-  C_wav_data_bits: integer := 12; -- 12: 12-bit signed sinewave amplitude resolution
-  C_shift_octave: integer := 4; -- shift pitch up by n octaves. improves tuning resolution but highest n octave waves will receive more coarse timestep 
-  C_timebase_var_bits: integer := 32; -- 32 bits for array data of timebase BRAM memory for addition
-  C_amplify: integer := 0; -- (default 0) louder output but reduces max number of voices by 2^n (clipping)
-  C_tones_per_octave: integer := 12; -- 12 tones per octave
-  C_out_bits: integer := 16 -- 16-bit of signed accumulator data (PCM)
+  C_voice_addr_bits: integer := 7; -- bits voices (2^n voices, timebase counters, volume multipliers)
+  C_voice_vol_bits: integer := 10; -- bits signed data for volume of each voice
+  C_wav_addr_bits: integer := 10;  -- bits unsigned address for wave time base (time resolution)
+  C_wav_data_bits: integer := 12; -- bits signed wave amplitude resolution
+  C_shift_octave: integer := 6; -- bits shift pitch up by n octaves. improves tuning resolution but highest n octave waves will receive more coarse timestep 
+  C_timebase_var_bits: integer := 32; -- bits for array data of timebase BRAM memory for addition
+  C_amplify: integer := 0; -- bits louder output but reduces max number of voices by 2^n (clipping)
+  C_tones_per_octave: integer := 12; -- tones per octave
+  C_out_bits: integer := 16 -- bits of signed accumulator data (PCM)
 );
 port
 (
@@ -103,8 +103,7 @@ architecture RTL of synth is
         variable y: T_voice_vol_table;
     begin
       for i in 0 to len - 1 loop
-        if i = 33 or i = 34 or i = 35 or i = 36 then -- which voices to enable
-        -- if i = 60 or i = 61 or i = 62 or i = 63 then -- which voices to enable
+        if i = 42 or i = 43 or i = 44 or i = 45 then -- which voices to enable
           y(i) := to_signed(2**(C_voice_vol_bits-1)-1, C_voice_vol_bits); -- one voice max positive volume
         else
           y(i) := to_signed(0, C_voice_vol_bits); -- others muted
@@ -139,7 +138,6 @@ begin
 
     -- increment the time base array in the BRAM
     S_tb_write_data <= S_tb_read_data + to_integer(C_freq_table(conv_integer(R_voice))); -- next time base incremented with frequency
-    -- S_tb_write_data <= S_tb_read_data + 1; -- debug: next time base incremented with frequency
     -- next value is written on previous address to match register pipeline latency
     S_tb_write_addr <= R_voice - 1;
     timebase_bram: entity work.bram_true2p_1clk

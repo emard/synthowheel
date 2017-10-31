@@ -32,7 +32,6 @@ architecture Behavioral of top_synth is
   signal S_pcm: signed(15 downto 0);
   signal S_out_l, S_out_r: std_logic;
   signal R_buzzer: signed(16 downto 0); -- tone generator for testing
-  signal S_led: std_logic_vector(7 downto 0);
 begin
   clk <= clk_50MHz;
   
@@ -46,7 +45,6 @@ begin
     port map 
     (
       clk => clk,
-      -- led => S_led,
       pcm_out => S_pcm
     );
 
