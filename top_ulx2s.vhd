@@ -47,11 +47,12 @@ begin
     generic map
     (
       -- set both to 9 bits so 9x9 multiplier will be used
-      C_voice_vol_bits => 9, -- bits signed data for volume of each voice
-      C_wav_data_bits => 9, -- bits signed wave amplitude resolution
-      C_timebase_var_bits => 19, -- single 19-bit BRAM will be used as phase accumulator
-      C_shift_octave => 5,
-      C_amplify => 4
+      C_voice_vol_bits => 10, -- 9: bits signed data for volume of each voice
+      C_wav_data_bits => 12, -- 9: bits signed wave amplitude resolution
+      C_timebase_var_bits => 32, -- 19: single 19-bit BRAM will be used as phase accumulator
+      C_shift_octave => 7,
+      C_tuning => 0.0,
+      C_amplify => 0
     )
     port map
     (

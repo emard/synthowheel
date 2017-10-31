@@ -14,11 +14,14 @@ use ieee.math_real.all;
 entity synth is
 generic
 (
+  C_clk_freq: integer := 25000000; -- Hz input clock
+  C_a4_freq: real := 440.0; -- Hz tone A4 tuning
   C_voice_addr_bits: integer := 7; -- bits voices (2^n voices, timebase counters, volume multipliers)
   C_voice_vol_bits: integer := 10; -- bits signed data for volume of each voice
   C_wav_addr_bits: integer := 10;  -- bits unsigned address for wave time base (time resolution)
   C_wav_data_bits: integer := 12; -- bits signed wave amplitude resolution
-  C_shift_octave: integer := 6; -- bits shift pitch up by n octaves. improves tuning resolution but highest n octave waves will receive more coarse timestep 
+  C_shift_octave: integer := 6; -- tuning by full n octaves. larger value have highier tuning resolution while highest n octaves will get coarser timestep
+  C_tuning: real range 0.0 to 1200.0 := 0.0; -- cents (1/1200 octave) fine tuning
   C_timebase_var_bits: integer := 32; -- bits for array data of timebase BRAM (phase accumulator)
   C_amplify: integer := 0; -- bits louder output but reduces max number of voices by 2^n (clipping)
   C_tones_per_octave: integer := 12; -- tones per octave (don't touch)
@@ -34,7 +37,6 @@ end;
 
 architecture RTL of synth is
 
-    constant C_timebase_const_bits: integer := C_timebase_var_bits-C_wav_addr_bits+C_shift_octave; -- bits for timebase addition constants
     constant C_accu_bits: integer := C_voice_vol_bits+C_wav_data_bits+C_voice_addr_bits-C_amplify-1; -- accumulator register width
 
     -- meantone temperament:
@@ -66,6 +68,10 @@ architecture RTL of synth is
     -- pythagorean tuning
     -- C	D♭	C♯		D 	E♭ 	D♯ 		E 	F 	F♯ 		G♭ 	G 	A♭ 	G♯		A 	B♭ 	A♯ 		B 	C
     -- 1 	256/243 2187/2048 	9/8 	32/27 	8192/6561 	81/64 	4/3 	1024/729 	729/512 3/2 	128/81 	6561/4096 	27/16 	16/9 	4096/2187 	243/128 2
+    
+    -- tuning math:
+    -- input: C_clk_freq, C_A4_freq, C_wav_addr_bits, C_voice_addr_bits
+    -- output: C_shift_octave, C_tuning
 
     constant C_wav_table_len: integer := 2**C_wav_addr_bits;
     type T_wav_table is array (0 to C_wav_table_len-1) of signed(C_wav_data_bits-1 downto 0);
@@ -82,20 +88,24 @@ architecture RTL of synth is
     constant C_wav_table: T_wav_table := F_wav_table(C_wav_table_len, C_wav_data_bits); -- wave table initializer len, amplitude
     
     -- the data type and initializer for the frequencies table
+    constant C_timebase_const_bits: integer := C_timebase_var_bits-C_wav_addr_bits+C_shift_octave; -- bits for timebase addition constants
     constant C_voice_table_len: integer := 2**C_voice_addr_bits;
     type T_freq_table is array (0 to C_voice_table_len-1) of unsigned(C_timebase_const_bits-1 downto 0);
-    function F_freq_table(len: integer; tones_per_octave: integer; bits: integer)
+    function F_freq_table(len: integer; temperament: T_halftone_temperament; tones_per_octave: integer;  bits: integer)
       return T_freq_table is
         variable i: integer;
+        variable octave, tone: integer;
         variable y: T_freq_table;
     begin
       for i in 0 to len - 1 loop
-        y(i) := to_unsigned(integer(2.0**(real(i)/real(tones_per_octave)) * 2.0**(real(bits)-real(len)/real(tones_per_octave))), C_timebase_const_bits);
+        octave := i / tones_per_octave; -- octave number
+        tone := i mod tones_per_octave; -- tone number
+        y(i) := to_unsigned(integer(2.0**(real(octave)+real(temperament(tone)+C_tuning)/1200.0 + real(bits)-real(len)/real(tones_per_octave))), C_timebase_const_bits);
       end loop;
       return y;
     end F_freq_table;
     constant C_freq_table_len: integer := 2**C_timebase_const_bits;
-    constant C_freq_table: T_freq_table := F_freq_table(C_voice_table_len, C_tones_per_octave, C_timebase_const_bits); -- wave table initializer len, freq
+    constant C_freq_table: T_freq_table := F_freq_table(C_voice_table_len, C_halftone_temperament, C_tones_per_octave, C_timebase_const_bits); -- wave table initializer len, freq
 
     -- the voice volume constant array for testing
     -- replace this ith dual port BRAM where CPU writes and synth reads values
@@ -106,8 +116,11 @@ architecture RTL of synth is
         variable y: T_voice_vol_table;
     begin
       for i in 0 to len - 1 loop
-        -- if i = 12 or i = 13 or i = 14 or i = 15 then -- which voices to enable
-        if i = 127 then -- which voices to enable
+        -- if i = 1 or i = 2 or i = 3 or i = 4 then -- which voices to enable
+        -- if i = 80 then
+        -- if i = 7 or i = 21 or i = 22 or i = 23 or i = 24 then -- which voices to enable
+        if i = 41 or i = 42 or i = 43 or i = 44 then -- which voices to enable
+        -- if i = 115 then -- which voices to enable
           y(i) := to_signed(2**(C_voice_vol_bits-1)-1, C_voice_vol_bits); -- one voice max positive volume
         else
           y(i) := to_signed(0, C_voice_vol_bits); -- others muted
