@@ -39,18 +39,18 @@ begin
   rs232_tx <= '1';
   
   inst_synth: entity work.synth
-    generic map (
-      C_voice_addr_bits => 7,
-      C_out_data => 16
+    generic map
+    (
+      C_amplify => 5
     )
-    port map (
+    port map 
+    (
       clk => clk,
-      led => S_led,
+      -- led => S_led,
       pcm_out => S_pcm
     );
 
-  --leds <= std_logic_vector(S_pcm(7 downto 0));
-  leds <= S_led;
+  leds <= std_logic_vector(S_pcm(S_pcm'length-1 downto S_pcm'length-leds'length));
   
   process(clk)
   begin

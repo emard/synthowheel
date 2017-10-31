@@ -14,18 +14,20 @@ use ieee.math_real.all;
 entity synth is
 generic
 (
-  C_voice_addr_bits: integer := 7; -- 7: 128 voices (counters, volume multipliers)
+  C_voice_addr_bits: integer := 7; -- 7: 128 voices (timebase counters, volume multipliers)
   C_voice_vol_bits: integer := 10; -- 10: 10-bit signed data for volume of each voice
-  C_wav_addr_bits: integer := 8;  -- 10: 10-bit unsigned address for time base
-  C_wav_data_bits: integer := 12;
-  C_timebase_var_bits: integer := 10; -- 10 bits for array data of timebase BRAM memory for addition
-  C_tones_per_octave: integer := 12;
-  C_out_data: integer := 16 -- 16-bit of signed accumulator data (PCM)
+  C_wav_addr_bits: integer := 8;  -- 8: 8-bit unsigned address for time base
+  C_wav_data_bits: integer := 12; -- 12: 12-bit signed sinewave amplitude resolution
+  C_shift_octave: integer := 4; -- shift pitch up by n octaves. improves tuning resolution but highest n octave waves will receive more coarse timestep 
+  C_timebase_var_bits: integer := 32; -- 32 bits for array data of timebase BRAM memory for addition
+  C_amplify: integer := 0; -- (default 0) louder output but reduces max number of voices by 2^n (clipping)
+  C_tones_per_octave: integer := 12; -- 12 tones per octave
+  C_out_bits: integer := 16 -- 16-bit of signed accumulator data (PCM)
 );
 port
 (
   clk: in std_logic;
-  led: out std_logic_vector(7 downto 0);
+  -- led: out std_logic_vector(7 downto 0);
   pcm_out: out signed(15 downto 0) -- to audio output
 );
 end;
@@ -59,9 +61,8 @@ architecture RTL of synth is
     -- C	D♭	C♯		D 	E♭ 	D♯ 		E 	F 	F♯ 		G♭ 	G 	A♭ 	G♯		A 	B♭ 	A♯ 		B 	C
     -- 1 	256/243 2187/2048 	9/8 	32/27 	8192/6561 	81/64 	4/3 	1024/729 	729/512 3/2 	128/81 	6561/4096 	27/16 	16/9 	4096/2187 	243/128 2
 
-    constant C_timebase_const_bits: integer := C_timebase_var_bits-C_wav_addr_bits; -- bits for timebase addition constants
-    -- constant C_accu_data: integer := C_timebase_var_bits+C_voice_addr_bits+C_wav_addr_bits; -- hopfully good enough accumulator register width
-    constant C_accu_data: integer := C_voice_vol_bits+C_wav_data_bits; -- hopfully good enough accumulator register width
+    constant C_timebase_const_bits: integer := C_timebase_var_bits-C_wav_addr_bits+C_shift_octave; -- bits for timebase addition constants
+    constant C_accu_bits: integer := C_voice_vol_bits+C_wav_data_bits+C_voice_addr_bits-C_amplify-1; -- accumulator register width
 
     constant C_wav_table_len: integer := 2**C_wav_addr_bits;
     type T_wav_table is array (0 to C_wav_table_len-1) of signed(C_wav_data_bits-1 downto 0);
@@ -102,7 +103,8 @@ architecture RTL of synth is
         variable y: T_voice_vol_table;
     begin
       for i in 0 to len - 1 loop
-        if i = 119 or i = 120 then -- which voices to enable
+        if i = 33 or i = 34 or i = 35 or i = 36 then -- which voices to enable
+        -- if i = 60 or i = 61 or i = 62 or i = 63 then -- which voices to enable
           y(i) := to_signed(2**(C_voice_vol_bits-1)-1, C_voice_vol_bits); -- one voice max positive volume
         else
           y(i) := to_signed(0, C_voice_vol_bits); -- others muted
@@ -116,8 +118,8 @@ architecture RTL of synth is
     signal S_voice_vol: signed(C_voice_vol_bits-1 downto 0);
     signal S_wav_data: signed(C_wav_data_bits-1 downto 0);
     signal R_multiplied: signed(C_voice_vol_bits+C_wav_data_bits-1 downto 0);
-    signal R_accu: signed(C_accu_data-1 downto 0);
-    signal R_output: signed(C_out_data-1 downto 0); 
+    signal R_accu: signed(C_accu_bits-1 downto 0);
+    signal R_output: signed(C_out_bits-1 downto 0); 
     signal R_led: std_logic_vector(7 downto 0); -- will appear to board LEDs
 begin
     -- increment voice number that is currently processed
@@ -125,12 +127,12 @@ begin
     begin
       if rising_edge(clk) then
         R_voice <= R_voice + 1;
-        if conv_integer(R_voice) = 0 then
+        -- if conv_integer(R_voice) = 0 then
           -- R_led <= S_tb_read_data(S_tb_read_data'length-1 downto S_tb_read_data'length-R_led'length);
           -- R_led <= std_logic_vector(S_wav_data(S_wav_data'length-1 downto S_wav_data'length-R_led'length));
           -- R_led <= std_logic_vector(R_multiplied(R_multiplied'length-1 downto R_multiplied'length-R_led'length));
-          R_led <= std_logic_vector(R_accu(R_accu'length-1 downto R_accu'length-R_led'length));
-        end if; 
+          -- R_led <= std_logic_vector(R_accu(R_accu'length-1 downto R_accu'length-R_led'length));
+        -- end if; 
       end if;
     end process;
     -- R_voice contains current address of the voice amplitude and frequency table
@@ -161,7 +163,7 @@ begin
     -- voice volume reading
     -- get from addressed BRAM the volume of current voice
     S_voice_vol <= C_voice_vol_table(conv_integer(R_voice)); -- connect to bram read output, address R_Voice
-    -- waveform data reading
+    -- waveform data reading (delayed 1 clock, address R_voice-1)
     S_wav_data <= C_wav_table(conv_integer(S_tb_read_data(C_timebase_var_bits-1 downto C_timebase_var_bits-C_wav_addr_bits)));
 
     -- multiply, store result to register and add register to accumulator
@@ -172,7 +174,7 @@ begin
         -- count this into designing R_accu large enough to avoid clipping
         R_multiplied <= S_voice_vol * S_wav_data;
         if R_voice = 0 then
-          R_output <= R_accu(C_accu_data-1 downto C_accu_data-C_out_data);
+          R_output <= R_accu(C_accu_bits-1 downto C_accu_bits-C_out_bits);
           R_accu <= (others => '0'); -- reset accumulator
         else
           R_accu <= R_accu + R_multiplied;
@@ -180,6 +182,6 @@ begin
       end if;
     end process;
     
-    led <= R_led;
+    -- led <= R_led;
     pcm_out <= R_accu(R_accu'length-1 downto R_accu'length-pcm_out'length);
 end;
