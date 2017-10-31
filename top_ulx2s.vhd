@@ -36,7 +36,7 @@ end;
 architecture Behavioral of top_synth is
   signal clk: std_logic;
   signal btn: std_logic_vector(4 downto 0);
-  signal S_pcm: signed(16 downto 0);
+  signal S_pcm: signed(15 downto 0);
   signal S_out_l, S_out_r: std_logic;
 begin
   clk <= clk_25m;
@@ -64,6 +64,7 @@ begin
         out_r => S_out_r
     );
 
-    p_tip <= S_out_l;
-    p_ring <= (others => S_out_r);
+    p_ring <= S_out_l;
+    p_tip <= (others => S_out_r);
+
 end Behavioral;
