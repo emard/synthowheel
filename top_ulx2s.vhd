@@ -42,17 +42,20 @@ begin
   clk <= clk_25m;
   btn <= btn_left & btn_right & btn_up & btn_down & btn_center;
   
-  led(4 downto 0) <= btn;
 
---  inst_synth: entity work.synth
---    generic map (
---      C_voice_addr_bits => 2,
---      C_out_data => 16
---    )
---    port map (
---      clk => clk,
---      pcm_out => S_pcm
---    );
+  inst_synth: entity work.synth
+    generic map
+    (
+      C_amplify => 5
+    )
+    port map
+    (
+      clk => clk,
+      pcm_out => S_pcm
+    );
+
+  -- led(4 downto 0) <= btn;
+  led <= std_logic_vector(S_pcm(S_pcm'length-1 downto S_pcm'length-led'length));
 
     inst_pcm: entity work.pcm
     port map
