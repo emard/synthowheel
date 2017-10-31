@@ -65,7 +65,7 @@ begin
     (
         clk => clk,
         in_pcm_l => S_pcm,
-        in_pcm_r => R_buzzer(R_buzzer'length-1 downto R_buzzer'length-16),
+        in_pcm_r => S_pcm, -- debug: R_buzzer(R_buzzer'length-1 downto R_buzzer'length-16),
         out_l => S_out_l,
         out_r => S_out_r
     );
