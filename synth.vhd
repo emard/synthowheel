@@ -19,7 +19,7 @@ generic
   C_wav_addr_bits: integer := 10;  -- bits unsigned address for wave time base (time resolution)
   C_wav_data_bits: integer := 12; -- bits signed wave amplitude resolution
   C_shift_octave: integer := 6; -- bits shift pitch up by n octaves. improves tuning resolution but highest n octave waves will receive more coarse timestep 
-  C_timebase_var_bits: integer := 32; -- bits for array data of timebase BRAM memory for addition
+  C_timebase_var_bits: integer := 32; -- bits for array data of timebase BRAM (phase accumulator)
   C_amplify: integer := 0; -- bits louder output but reduces max number of voices by 2^n (clipping)
   C_tones_per_octave: integer := 12; -- tones per octave
   C_out_bits: integer := 16 -- bits of signed accumulator data (PCM)
@@ -63,6 +63,8 @@ architecture RTL of synth is
 
     constant C_timebase_const_bits: integer := C_timebase_var_bits-C_wav_addr_bits+C_shift_octave; -- bits for timebase addition constants
     constant C_accu_bits: integer := C_voice_vol_bits+C_wav_data_bits+C_voice_addr_bits-C_amplify-1; -- accumulator register width
+    
+    -- type T_halftone_temperament is array (0 to C_tones_per_octave-1) of real;
 
     constant C_wav_table_len: integer := 2**C_wav_addr_bits;
     type T_wav_table is array (0 to C_wav_table_len-1) of signed(C_wav_data_bits-1 downto 0);
@@ -103,7 +105,8 @@ architecture RTL of synth is
         variable y: T_voice_vol_table;
     begin
       for i in 0 to len - 1 loop
-        if i = 42 or i = 43 or i = 44 or i = 45 then -- which voices to enable
+        -- if i = 12 or i = 13 or i = 14 or i = 15 then -- which voices to enable
+        if i = 127 then -- which voices to enable
           y(i) := to_signed(2**(C_voice_vol_bits-1)-1, C_voice_vol_bits); -- one voice max positive volume
         else
           y(i) := to_signed(0, C_voice_vol_bits); -- others muted
@@ -114,7 +117,7 @@ architecture RTL of synth is
     constant C_voice_vol_table: T_voice_vol_table := F_voice_vol_table(C_voice_table_len, C_voice_vol_bits); -- vol table for testing
     signal R_voice, S_tb_write_addr: std_logic_vector(C_voice_addr_bits-1 downto 0); -- currently processed voice, destination of increment
     signal S_tb_read_data, S_tb_write_data: std_logic_vector(C_timebase_var_bits-1 downto 0); -- current and next timebase
-    signal S_voice_vol: signed(C_voice_vol_bits-1 downto 0);
+    signal S_voice_vol, R_voice_vol: signed(C_voice_vol_bits-1 downto 0);
     signal S_wav_data: signed(C_wav_data_bits-1 downto 0);
     signal R_multiplied: signed(C_voice_vol_bits+C_wav_data_bits-1 downto 0);
     signal R_accu: signed(C_accu_bits-1 downto 0);
@@ -132,6 +135,7 @@ begin
           -- R_led <= std_logic_vector(R_multiplied(R_multiplied'length-1 downto R_multiplied'length-R_led'length));
           -- R_led <= std_logic_vector(R_accu(R_accu'length-1 downto R_accu'length-R_led'length));
         -- end if; 
+        R_voice_vol <= S_voice_vol; -- simulate 1-clock delay to match BRAM delay
       end if;
     end process;
     -- R_voice contains current address of the voice amplitude and frequency table
@@ -170,8 +174,9 @@ begin
       if rising_edge(clk) then
         -- S_voice_vol must be signed, then max amplitude is 2x smaller
         -- count this into designing R_accu large enough to avoid clipping
-        R_multiplied <= S_voice_vol * S_wav_data;
-        if R_voice = 0 then
+        -- R_voice_vol used for delay-match with BRAM
+        R_multiplied <= R_voice_vol * S_wav_data;
+        if conv_integer(R_voice) = 2 then -- output-ready R_accu appears with 2 clocks delay
           R_output <= R_accu(C_accu_bits-1 downto C_accu_bits-C_out_bits);
           R_accu <= (others => '0'); -- reset accumulator
         else
@@ -179,7 +184,10 @@ begin
         end if;
       end if;
     end process;
-    
-    -- led <= R_led;
-    pcm_out <= R_accu(R_accu'length-1 downto R_accu'length-pcm_out'length);
+
+    pcm_out <= R_output(R_output'length-1 downto R_output'length-pcm_out'length);
 end;
+
+-- todo
+-- [ ] shift volume by 1 place, the lowest tone (now 127) should be tone 0
+-- [ ] apply 12 meantone temperament using 1200 cents table
