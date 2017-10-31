@@ -20,8 +20,8 @@ generic
   C_voice_vol_bits: integer := 10; -- bits signed data for volume of each voice
   C_wav_addr_bits: integer := 10;  -- bits unsigned address for wave time base (time resolution)
   C_wav_data_bits: integer := 12; -- bits signed wave amplitude resolution
-  C_shift_octave: integer := 6; -- tuning by full n octaves. larger value have highier tuning resolution while highest n octaves will get coarser timestep
-  C_tuning: real range 0.0 to 1200.0 := 0.0; -- cents (1/1200 octave) fine tuning
+  --C_shift_octave: integer := 6; -- tuning by full n octaves. larger value have highier tuning resolution while highest n octaves will get coarser timestep
+  --C_tuning: real range 0.0 to 1200.0 := 0.0; -- cents (1/1200 octave) fine tuning
   C_timebase_var_bits: integer := 32; -- bits for array data of timebase BRAM (phase accumulator)
   C_amplify: integer := 0; -- bits louder output but reduces max number of voices by 2^n (clipping)
   C_tones_per_octave: integer := 12; -- tones per octave (don't touch)
@@ -36,15 +36,13 @@ port
 end;
 
 architecture RTL of synth is
-
-    constant C_accu_bits: integer := C_voice_vol_bits+C_wav_data_bits+C_voice_addr_bits-C_amplify-1; -- accumulator register width
-
     -- meantone temperament:
-    -- see https://en.wikipedia.org/wiki/Semitone
-    -- and https://en.wikipedia.org/wiki/Chromatic_scale
     -- tone cents table f=2^(x/1200), 0-1200 scale for full octave of 12 tones
-    type T_halftone_temperament is array (0 to C_tones_per_octave-1) of real;
-    constant C_halftone_temperament: T_halftone_temperament :=
+    type T_meantone_temperament is array (0 to C_tones_per_octave-1) of real;
+
+    -- see https://en.wikipedia.org/wiki/Semitone
+    -- classical music quarter-comma meantone temperament, chromatic scale
+    constant C_quarter_comma_temperament: T_meantone_temperament :=
     (
          0.0, --  0 C
         76.0, --  1 C#
@@ -59,19 +57,39 @@ architecture RTL of synth is
       1006.8, -- 10 Bb
       1082.9  -- 11 B
     );
-    
-    -- other temperaments (freq scale)
-    -- just intonaton
-    -- C	C♯	D♭	D	D♯	E♭	E	E♯/F♭	F	F♯	G♭	G	G♯	A♭	A	A♯	B♭	B	B♯/C♭	C
-    -- 1 	25/24 	16/15 	9/8 	75/64 	6/5 	5/4 	32/25 	4/3 	25/18 	36/25 	3/2 	25/16 	8/5 	5/3 	125/72 	9/5 	15/8 	48/25 	2
 
-    -- pythagorean tuning
-    -- C	D♭	C♯		D 	E♭ 	D♯ 		E 	F 	F♯ 		G♭ 	G 	A♭ 	G♯		A 	B♭ 	A♯ 		B 	C
-    -- 1 	256/243 2187/2048 	9/8 	32/27 	8192/6561 	81/64 	4/3 	1024/729 	729/512 3/2 	128/81 	6561/4096 	27/16 	16/9 	4096/2187 	243/128 2
+    constant C_equal_temperament: T_meantone_temperament :=
+    (
+         0.0, --  0 C
+       100.0, --  1 C#
+       200.0, --  2 D
+       300.0, --  3 Eb
+       400.0, --  4 E
+       500.0, --  5 F
+       600.0, --  6 F#
+       700.0, --  7 G
+       800.0, --  8 G#
+       900.0, --  9 A
+      1000.0, -- 10 Bb
+      1100.0  -- 11 B
+    );
+
+    -- Select which temperament to use 
+    constant C_temperament: T_meantone_temperament := C_quarter_comma_temperament;
     
     -- tuning math:
     -- input: C_clk_freq, C_A4_freq, C_wav_addr_bits, C_voice_addr_bits
     -- output: C_shift_octave, C_tuning
+
+    -- calculate base frequency, this is lowest possible A, meantone_temperament #9
+    constant C_base_freq: real := real(C_clk_freq)*2.0**(C_temperament(9)/1200.0-real(C_voice_addr_bits+C_wav_addr_bits)-real(2**C_voice_addr_bits)/real(C_tones_per_octave) );
+    -- calculate how many float octaves we need to go up to reach C_a4_freq
+    constant C_octave_to_a4: real := log(C_a4_freq/C_base_freq)/log(2.0);
+    -- convert real C_octave_to_a4 into octave integer and cents tuning
+    constant C_shift_octave: integer := integer(C_octave_to_a4)-4;
+    constant C_tuning: real := 1200.0*(C_octave_to_a4-floor(C_octave_to_a4));
+
+    constant C_accu_bits: integer := C_voice_vol_bits+C_wav_data_bits+C_voice_addr_bits-C_amplify-1; -- accumulator register width
 
     constant C_wav_table_len: integer := 2**C_wav_addr_bits;
     type T_wav_table is array (0 to C_wav_table_len-1) of signed(C_wav_data_bits-1 downto 0);
@@ -91,7 +109,7 @@ architecture RTL of synth is
     constant C_timebase_const_bits: integer := C_timebase_var_bits-C_wav_addr_bits+C_shift_octave; -- bits for timebase addition constants
     constant C_voice_table_len: integer := 2**C_voice_addr_bits;
     type T_freq_table is array (0 to C_voice_table_len-1) of unsigned(C_timebase_const_bits-1 downto 0);
-    function F_freq_table(len: integer; temperament: T_halftone_temperament; tones_per_octave: integer;  bits: integer)
+    function F_freq_table(len: integer; temperament: T_meantone_temperament; tones_per_octave: integer;  bits: integer)
       return T_freq_table is
         variable i: integer;
         variable octave, tone: integer;
@@ -105,25 +123,27 @@ architecture RTL of synth is
       return y;
     end F_freq_table;
     constant C_freq_table_len: integer := 2**C_timebase_const_bits;
-    constant C_freq_table: T_freq_table := F_freq_table(C_voice_table_len, C_halftone_temperament, C_tones_per_octave, C_timebase_const_bits); -- wave table initializer len, freq
+    constant C_freq_table: T_freq_table := F_freq_table(C_voice_table_len, C_temperament, C_tones_per_octave, C_timebase_const_bits); -- wave table initializer len, freq
 
     -- the voice volume constant array for testing
     -- replace this ith dual port BRAM where CPU writes and synth reads values
     type T_voice_vol_table is array (0 to C_voice_table_len-1) of signed(C_voice_vol_bits-1 downto 0);
     function F_voice_vol_table(len: integer; bits: integer)
       return T_voice_vol_table is
-        variable i: integer;
+        variable i,j: integer;
         variable y: T_voice_vol_table;
     begin
       for i in 0 to len - 1 loop
+        j := (i-1+len) mod len; -- shift by 1 to match pipeline delay
         -- if i = 1 or i = 2 or i = 3 or i = 4 then -- which voices to enable
         -- if i = 80 then
         -- if i = 7 or i = 21 or i = 22 or i = 23 or i = 24 then -- which voices to enable
-        if i = 41 or i = 42 or i = 43 or i = 44 then -- which voices to enable
+        -- if i = 3*12+0 or i = 3*12+1 or i = 3*12+2 or i = 3*12+3 then -- C3, C#3, D3, Eb3
+        if i = 4*12+9 then -- A4 (normally 440Hz)
         -- if i = 115 then -- which voices to enable
-          y(i) := to_signed(2**(C_voice_vol_bits-1)-1, C_voice_vol_bits); -- one voice max positive volume
+          y(j) := to_signed(2**(C_voice_vol_bits-1)-1, C_voice_vol_bits); -- one voice max positive volume
         else
-          y(i) := to_signed(0, C_voice_vol_bits); -- others muted
+          y(j) := to_signed(0, C_voice_vol_bits); -- others muted
         end if;
       end loop;
       return y;
@@ -204,4 +224,4 @@ end;
 
 -- todo
 -- [ ] shift volume by 1 place, the lowest tone (now 127) should be tone 0
--- [ ] apply 12 meantone temperament using 1200 cents table
+-- [x] apply 12 meantone temperament using 1200 cents table
