@@ -16,13 +16,11 @@ generic
 (
   C_clk_freq: integer := 25000000; -- Hz system clock
   C_A4_freq: real := 440.0; -- Hz tone A4 tuning
-  C_voice_addr_bits: integer := 7; -- bits voices (2^n voices, timebase counters, volume multipliers)
+  C_voice_addr_bits: integer := 7; -- bits voices (2^n voices, phase accumulators, volume multipliers)
   C_voice_vol_bits: integer := 10; -- bits signed data for volume of each voice
   C_wav_addr_bits: integer := 10;  -- bits unsigned address for wave time base (time resolution)
   C_wav_data_bits: integer := 12; -- bits signed wave amplitude resolution
-  --C_shift_octave: integer := 6; -- tuning by full n octaves. larger value have highier tuning resolution while highest n octaves will get coarser timestep
-  --C_tuning: real range 0.0 to 1200.0 := 0.0; -- cents (1/1200 octave) fine tuning
-  C_timebase_var_bits: integer := 32; -- bits for array data of timebase BRAM (phase accumulator)
+  C_pa_data_bits: integer := 32; -- bits of data in phase accumulator BRAM
   C_amplify: integer := 0; -- bits louder output but reduces max number of voices by 2^n (clipping)
   C_tones_per_octave: integer := 12; -- tones per octave (don't touch)
   C_out_bits: integer := 16 -- bits of signed accumulator data (PCM)
@@ -79,7 +77,7 @@ architecture RTL of synth is
     
     -- tuning math:
     -- input: C_clk_freq, C_A4_freq, C_wav_addr_bits, C_voice_addr_bits
-    -- output: C_shift_octave, C_tuning
+    -- output: C_shift_octave, C_tuning_cents
 
     -- calculate base frequency, this is lowest possible A, meantone_temperament #9
     constant C_base_freq: real := real(C_clk_freq)*2.0**(C_temperament(9)/1200.0-real(C_voice_addr_bits+C_wav_addr_bits)-real(2**C_voice_addr_bits)/real(C_tones_per_octave) );
@@ -87,7 +85,7 @@ architecture RTL of synth is
     constant C_octave_to_A4: real := log(C_A4_freq/C_base_freq)/log(2.0);
     -- convert real C_octave_to_A4 into octave integer and cents tuning
     constant C_shift_octave: integer := integer(C_octave_to_A4)-4;
-    constant C_tuning: real := 1200.0*(C_octave_to_A4-floor(C_octave_to_A4));
+    constant C_tuning_cents: real := 1200.0*(C_octave_to_A4-floor(C_octave_to_A4));
 
     constant C_accu_bits: integer := C_voice_vol_bits+C_wav_data_bits+C_voice_addr_bits-C_amplify-1; -- accumulator register width
 
@@ -106,10 +104,10 @@ architecture RTL of synth is
     constant C_wav_table: T_wav_table := F_wav_table(C_wav_table_len, C_wav_data_bits); -- wave table initializer len, amplitude
     
     -- the data type and initializer for the frequencies table
-    constant C_timebase_const_bits: integer := C_timebase_var_bits-C_wav_addr_bits+C_shift_octave; -- bits for timebase addition constants
+    constant C_phase_const_bits: integer := C_pa_data_bits-C_wav_addr_bits+C_shift_octave; -- bits for phase accumulator addition constants
     constant C_voice_table_len: integer := 2**C_voice_addr_bits;
-    type T_freq_table is array (0 to C_voice_table_len-1) of unsigned(C_timebase_const_bits-1 downto 0);
-    function F_freq_table(len: integer; temperament: T_meantone_temperament; tones_per_octave: integer;  bits: integer)
+    type T_freq_table is array (0 to C_voice_table_len-1) of unsigned(C_phase_const_bits-1 downto 0);
+    function F_freq_table(len: integer; temperament: T_meantone_temperament; tuning: real; tones_per_octave: integer;  bits: integer)
       return T_freq_table is
         variable i: integer;
         variable octave, tone: integer;
@@ -118,11 +116,11 @@ architecture RTL of synth is
       for i in 0 to len - 1 loop
         octave := i / tones_per_octave; -- octave number
         tone := i mod tones_per_octave; -- tone number
-        y(i) := to_unsigned(integer(2.0**(real(octave)+(temperament(tone)+C_tuning)/1200.0 + real(bits)-real(len)/real(tones_per_octave)) + 0.5), bits);
+        y(i) := to_unsigned(integer(2.0**(real(octave)+(temperament(tone)+tuning)/1200.0 + real(bits)-real(len)/real(tones_per_octave)) + 0.5), bits);
       end loop;
       return y;
     end F_freq_table;
-    constant C_freq_table: T_freq_table := F_freq_table(C_voice_table_len, C_temperament, C_tones_per_octave, C_timebase_const_bits); -- wave table initializer len, freq
+    constant C_freq_table: T_freq_table := F_freq_table(C_voice_table_len, C_temperament, C_tuning_cents, C_tones_per_octave, C_phase_const_bits); -- wave table initializer len, freq
 
     -- the voice volume constant array for testing
     -- replace this ith dual port BRAM where CPU writes and synth reads values
@@ -154,8 +152,8 @@ architecture RTL of synth is
       return y;
     end F_voice_vol_table;
     constant C_voice_vol_table: T_voice_vol_table := F_voice_vol_table(C_voice_table_len, C_voice_vol_bits); -- vol table for testing
-    signal R_voice, S_tb_write_addr: std_logic_vector(C_voice_addr_bits-1 downto 0); -- currently processed voice, destination of increment
-    signal S_tb_read_data, S_tb_write_data: std_logic_vector(C_timebase_var_bits-1 downto 0); -- current and next timebase
+    signal R_voice, S_pa_write_addr: std_logic_vector(C_voice_addr_bits-1 downto 0); -- currently processed voice, destination of increment
+    signal S_pa_read_data, S_pa_write_data: std_logic_vector(C_pa_data_bits-1 downto 0); -- current and next phase
     signal S_voice_vol, R_voice_vol: signed(C_voice_vol_bits-1 downto 0);
     signal S_wav_data: signed(C_wav_data_bits-1 downto 0);
     signal R_multiplied: signed(C_voice_vol_bits+C_wav_data_bits-1 downto 0);
@@ -169,7 +167,7 @@ begin
       if rising_edge(clk) then
         R_voice <= R_voice + 1;
         -- if conv_integer(R_voice) = 0 then
-          -- R_led <= S_tb_read_data(S_tb_read_data'length-1 downto S_tb_read_data'length-R_led'length);
+          -- R_led <= S_pa_read_data(S_pa_read_data'length-1 downto S_pa_read_data'length-R_led'length);
           -- R_led <= std_logic_vector(S_wav_data(S_wav_data'length-1 downto S_wav_data'length-R_led'length));
           -- R_led <= std_logic_vector(R_multiplied(R_multiplied'length-1 downto R_multiplied'length-R_led'length));
           -- R_led <= std_logic_vector(R_accu(R_accu'length-1 downto R_accu'length-R_led'length));
@@ -180,32 +178,32 @@ begin
     -- R_voice contains current address of the voice amplitude and frequency table
 
     -- increment the time base array in the BRAM
-    S_tb_write_data <= S_tb_read_data + to_integer(C_freq_table(conv_integer(R_voice))); -- next time base incremented with frequency
+    S_pa_write_data <= S_pa_read_data + to_integer(C_freq_table(conv_integer(R_voice))); -- next time base incremented with frequency
     -- next value is written on previous address to match register pipeline latency
-    S_tb_write_addr <= R_voice - 1;
+    S_pa_write_addr <= R_voice - 1;
     phase_accumulator: entity work.bram_true2p_1clk
     generic map
     (
         dual_port => true,
         addr_width => C_voice_addr_bits,
-        data_width => C_timebase_var_bits
+        data_width => C_pa_data_bits
     )
     port map
     (
         clk => clk,
         we_a => '1', -- always write increments
-        addr_a => S_tb_write_addr,
-        data_in_a => S_tb_write_data,
+        addr_a => S_pa_write_addr,
+        data_in_a => S_pa_write_data,
         we_b => '0', -- always read 
         addr_b => R_voice,
-        data_out_b => S_tb_read_data
+        data_out_b => S_pa_read_data
     );
 
     -- voice volume reading
     -- get from addressed BRAM the volume of current voice
     S_voice_vol <= C_voice_vol_table(conv_integer(R_voice)); -- connect to bram read output, address R_Voice
     -- waveform data reading (delayed 1 clock, address R_voice-1)
-    S_wav_data <= C_wav_table(conv_integer(S_tb_read_data(C_timebase_var_bits-1 downto C_timebase_var_bits-C_wav_addr_bits)));
+    S_wav_data <= C_wav_table(conv_integer(S_pa_read_data(C_pa_data_bits-1 downto C_pa_data_bits-C_wav_addr_bits)));
 
     -- multiply, store result to register and add register to accumulator
     process(clk)

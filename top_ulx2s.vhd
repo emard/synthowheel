@@ -50,10 +50,11 @@ begin
       C_clk_freq => C_clk_freq,
       C_A4_freq => C_A4_freq,
       -- set both to 9 bits so 9x9 multiplier will be used
-      C_voice_vol_bits => 10, -- 9: bits signed data for volume of each voice
-      C_wav_data_bits => 12, -- 9: bits signed wave amplitude resolution
-      C_wav_addr_bits => 10, -- 10: bits wave function table
-      C_timebase_var_bits => 32, -- 19: single 19-bit BRAM will be used as phase accumulator
+      --C_voice_addr_bits => 7, -- 7:128 tones (tuning math doesn't tune for other valuesy)
+      --C_voice_vol_bits => 10, -- 9: bits signed data for volume of each voice
+      --C_wav_data_bits => 12, -- 9: bits signed wave amplitude resolution
+      --C_wav_addr_bits => 10, -- 10: bits wave function table
+      --C_pa_bits => 32, -- 19: single 19-bit BRAM will be used as phase accumulator
       C_amplify => 0
     )
     port map
