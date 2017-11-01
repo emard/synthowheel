@@ -115,7 +115,7 @@ architecture RTL of synth is
     begin
       for i in 0 to len - 1 loop
         octave := i / tones_per_octave; -- octave number
-        tone := i mod tones_per_octave; -- tone number
+        tone := i mod tones_per_octave; -- meantone number
         y(i) := to_unsigned(integer(2.0**(real(C_shift_octave+octave)+(temperament(tone)+tuning)/1200.0)+0.5), bits);
       end loop;
       return y;
