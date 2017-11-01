@@ -15,7 +15,7 @@ entity synth is
 generic
 (
   C_clk_freq: integer := 25000000; -- Hz system clock
-  C_A4_freq: real := 439.9; -- Hz tone A4 tuning
+  C_A4_freq: real := 440.0; -- Hz tone A4 tuning
   C_voice_addr_bits: integer := 7; -- bits voices (2^n voices, timebase counters, volume multipliers)
   C_voice_vol_bits: integer := 10; -- bits signed data for volume of each voice
   C_wav_addr_bits: integer := 10;  -- bits unsigned address for wave time base (time resolution)
@@ -83,9 +83,9 @@ architecture RTL of synth is
 
     -- calculate base frequency, this is lowest possible A, meantone_temperament #9
     constant C_base_freq: real := real(C_clk_freq)*2.0**(C_temperament(9)/1200.0-real(C_voice_addr_bits+C_wav_addr_bits)-real(2**C_voice_addr_bits)/real(C_tones_per_octave) );
-    -- calculate how many float octaves we need to go up to reach C_A4_freq
+    -- calculate how many octaves (floating point) we need to go up to reach C_A4_freq
     constant C_octave_to_A4: real := log(C_A4_freq/C_base_freq)/log(2.0);
-    -- convert real C_octave_to_a4 into octave integer and cents tuning
+    -- convert real C_octave_to_A4 into octave integer and cents tuning
     constant C_shift_octave: integer := integer(C_octave_to_A4)-4;
     constant C_tuning: real := 1200.0*(C_octave_to_A4-floor(C_octave_to_A4));
 
@@ -118,11 +118,10 @@ architecture RTL of synth is
       for i in 0 to len - 1 loop
         octave := i / tones_per_octave; -- octave number
         tone := i mod tones_per_octave; -- tone number
-        y(i) := to_unsigned(integer(2.0**(real(octave)+real(temperament(tone)+C_tuning)/1200.0 + real(bits)-real(len)/real(tones_per_octave)) + 0.5), C_timebase_const_bits);
+        y(i) := to_unsigned(integer(2.0**(real(octave)+(temperament(tone)+C_tuning)/1200.0 + real(bits)-real(len)/real(tones_per_octave)) + 0.5), bits);
       end loop;
       return y;
     end F_freq_table;
-    constant C_freq_table_len: integer := 2**C_timebase_const_bits;
     constant C_freq_table: T_freq_table := F_freq_table(C_voice_table_len, C_temperament, C_tones_per_octave, C_timebase_const_bits); -- wave table initializer len, freq
 
     -- the voice volume constant array for testing
@@ -184,7 +183,7 @@ begin
     S_tb_write_data <= S_tb_read_data + to_integer(C_freq_table(conv_integer(R_voice))); -- next time base incremented with frequency
     -- next value is written on previous address to match register pipeline latency
     S_tb_write_addr <= R_voice - 1;
-    timebase_bram: entity work.bram_true2p_1clk
+    phase_accumulator: entity work.bram_true2p_1clk
     generic map
     (
         dual_port => true,
