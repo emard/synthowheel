@@ -55,7 +55,7 @@ begin
       --C_wav_data_bits => 12, -- 9: bits signed wave amplitude resolution
       --C_wav_addr_bits => 10, -- 10: bits wave function table
       --C_pa_bits => 32, -- 19: single 19-bit BRAM will be used as phase accumulator
-      C_amplify => 0
+      C_amplify => 4
     )
     port map
     (
@@ -78,5 +78,6 @@ begin
 
     p_ring <= S_out_l;
     p_tip <= (others => S_out_r);
+    j1_19 <= S_out_l;
 
 end Behavioral;

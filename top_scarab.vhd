@@ -10,7 +10,8 @@ use IEEE.MATH_REAL.ALL;
 
 entity top_synth is
   generic (
-    C_clk_freq: integer := 50;
+    C_clk_freq: integer := 50000000; -- Hz
+    C_A4_freq: real := 440.0; -- Hz tone A4 (normally 440 Hz)
     C_pcm: boolean := true
   );
   port (
@@ -40,7 +41,9 @@ begin
   inst_synth: entity work.synth
     generic map
     (
-      C_amplify => 5
+      C_clk_freq => C_clk_freq,
+      C_A4_freq => C_A4_freq,
+      C_amplify => 6
     )
     port map 
     (
