@@ -11,8 +11,9 @@ derived from the stable quartz oscillator.
 Polyphonic synthesis is inspired by a set of multiple rotating
 [tonewheels](https://en.wikipedia.org/wiki/Tonewheel) with
 electromagnetic pickups like found in
-[Telharmonium](https://en.wikipedia.org/wiki/Telharmonium) or
-[Hammond](https://en.wikipedia.org/wiki/Hammond_organ).
+[Hammond](https://en.wikipedia.org/wiki/Hammond_organ) which
+has a set of drawbars that mix harmonics and produce characteristic
+[waveforms](https://www.soundonsound.com/techniques/synthesizing-tonewheel-organs).
 No intention is made to fully reproduce historic sound, but 
 to produce a mathematically described polyphonic synth with FPGA.
 
