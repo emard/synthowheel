@@ -17,12 +17,12 @@ Polyphonic synthesis is inspired by a set of multiple rotating
 electromagnetic pickups like found in
 [Hammond organ](https://en.wikipedia.org/wiki/Hammond_organ) which
 has a set of drawbars that mix sinewave harmonics to produce characteristic
-[waveforms](https://www.soundonsound.com/techniques/synthesizing-tonewheel-organs).
+[tonewheel waveforms](https://www.soundonsound.com/techniques/synthesizing-tonewheel-organs).
 No intention is made to fully reproduce historic sound, but 
 to produce numerically controled polyphonic synth with FPGA.
 
 At each clock cycle, pre-calculated frequency step is added to a
-phase accumulator associate with each voice, providing precise
+phase accumulator associated with each voice, providing precise
 waveform time base for each generator. The array is 12-halftone based but 
 any other tuning is possible.
 
