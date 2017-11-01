@@ -60,6 +60,11 @@ begin
     port map
     (
       clk => clk,
+      bus_ce => '0',
+      bus_write => '0',
+      bus_byte_sel => (others => '0'),
+      bus_addr => (others => '0'),
+      bus_in => (others => '0'),
       pcm_out => S_pcm
     );
 

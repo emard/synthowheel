@@ -27,7 +27,10 @@ generic
 );
 port
 (
-  clk: in std_logic;
+  clk, bus_ce, bus_write: in std_logic;
+  bus_addr: in std_logic_vector(1 downto 0);
+  bus_byte_sel: in std_logic_vector(3 downto 0);
+  bus_in: in std_logic_vector(31 downto 0);
   -- led: out std_logic_vector(7 downto 0);
   pcm_out: out signed(15 downto 0) -- to audio output
 );
@@ -89,37 +92,43 @@ architecture RTL of synth is
 
     constant C_accu_bits: integer := C_voice_vol_bits+C_wav_data_bits+C_voice_addr_bits-C_amplify-1; -- accumulator register width
 
+    constant C_drawbar_len: integer := 9; -- number of Hammond style drawbars
+    type T_drawbar_table is array (0 to C_drawbar_len-1) of real;
+    constant C_drawbar_harmonic:   T_drawbar_table := (1.0,3.0, 2.0,4.0,6.0,8.0, 10.0,12.0,16.0);
+    -- Hammond common registrations
+    constant C_drawbar_sinewave:   T_drawbar_table := (8.0,0.0, 0.0,0.0,0.0,0.0, 0.0,0.0,0.0);
+    constant C_drawbar_rockorgan:  T_drawbar_table := (8.0,8.0, 8.0,0.0,0.0,0.0, 0.0,0.0,0.0);
+    constant C_drawbar_sawtooth:   T_drawbar_table := (8.0,3.0, 4.0,2.0,1.0,1.0, 1.0,0.0,0.0);
+    constant C_drawbar_squarewave: T_drawbar_table := (0.0,0.0, 8.0,0.0,3.0,0.0, 2.0,0.0,0.0);
+    constant C_drawbar_fullbright: T_drawbar_table := (8.0,8.0, 8.0,8.0,8.0,8.0, 8.0,8.0,8.0);
+    -- choose registration
+    constant C_drawbar_registration: T_drawbar_table := C_drawbar_rockorgan; -- choose registration
+
     constant C_wav_table_len: integer := 2**C_wav_addr_bits;
     type T_wav_table is array (0 to C_wav_table_len-1) of signed(C_wav_data_bits-1 downto 0);
-    function F_wav_table(len: integer; bits: integer)
+    function F_wav_table(len: integer; drawbar_harmonic: T_drawbar_table; drawbar_registration: T_drawbar_table; bits: integer)
       return T_wav_table is
-        variable i: integer;
+        variable i,j: integer;
         variable w: real; -- omega angular frequency
+        variable sum: real; -- sum o wave functions
+        variable normalize: real; -- normalize amplitude
         variable y: T_wav_table;
     begin
+      normalize := 0.0;
+      for j in 0 to drawbar_registration'length-1 loop
+        normalize := normalize + drawbar_registration(j);
+      end loop;
       for i in 0 to len - 1 loop
         w := 2.0*3.141592653589793*real(i)/real(len); -- w = 2*pi*f
-        -- Hammond drawbars common registrations
-        -- 80 0000 000 -- Sinewave
-        -- 88 8000 000 -- Rock Organ
-        -- 83 4211 100 -- Sawtoothish
-        -- 00 8030 200 -- Squarewavish
-        -- 88 8888 888 -- Full Bright
-        y(i) := to_signed(integer((
-          + 8.0 * sin(1.0*w)  --  1. harmonic BROWN
-          + 8.0 * sin(3.0*w)  --  3. harmonic BROWN
-          + 8.0 * sin(2.0*w)  --  2. harmonic WHITE
-          + 0.0 * sin(4.0*w)  --  4. harmonic WHITE
-          + 0.0 * sin(6.0*w)  --  6. harmonic BLACK
-          + 0.0 * sin(8.0*w)  --  8. harmonic WHITE
-          + 0.0 * sin(10.0*w) -- 10. harmonic BLACK
-          + 0.0 * sin(12.0*w) -- 12. harmonic BLACK
-          + 0.0 * sin(16.0*w) -- 16. harmonic WHITE
-          )/(8.0*9.0) * (2.0**real(bits-1)-1.0)), C_wav_data_bits); -- converts sinewave floats to signed number
+        sum := 0.0;
+        for j in 0 to drawbar_registration'length-1 loop
+          sum := sum + drawbar_registration(j) * sin(drawbar_harmonic(j)*w);
+        end loop;
+        y(i) := to_signed(integer( sum/normalize * (2.0**real(bits-1)-1.0)), C_wav_data_bits);
       end loop;
       return y;
     end F_wav_table;
-    constant C_wav_table: T_wav_table := F_wav_table(C_wav_table_len, C_wav_data_bits); -- wave table initializer len, amplitude
+    constant C_wav_table: T_wav_table := F_wav_table(C_wav_table_len, C_drawbar_harmonic, C_drawbar_registration, C_wav_data_bits); -- wave table initializer len, amplitude
     
     -- the data type and initializer for the frequencies table
     constant C_voice_table_len: integer := 2**C_voice_addr_bits;
@@ -154,7 +163,7 @@ architecture RTL of synth is
         -- if i = 80 then
         -- if i = 7 or i = 21 or i = 22 or i = 23 or i = 24 then -- which voices to enable
         -- if i = 3*12+0 or i = 3*12+1 or i = 3*12+2 or i = 3*12+3 then -- C3, C#3, D3, Eb3
-        -- if i = 3*12+0 or i = 4*12+1 or i = 4*12+2 or i = 4*12+3 then -- C4, C#4, D4, Eb4
+        -- if i = 3*12+0 or i = 4*12+1 or i = 4*12+3 then -- C3, C#4, Eb4
         -- if i = 0 then -- C0
         -- if i = 0*12+5 then -- F0
         -- if i = 3*12+9 then -- A3 (220 Hz)
