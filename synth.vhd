@@ -136,10 +136,21 @@ architecture RTL of synth is
         -- if i = 80 then
         -- if i = 7 or i = 21 or i = 22 or i = 23 or i = 24 then -- which voices to enable
         -- if i = 3*12+0 or i = 3*12+1 or i = 3*12+2 or i = 3*12+3 then -- C3, C#3, D3, Eb3
+        -- if i = 0 then -- C0
+        -- if i = 0*12+5 then -- F0
         -- if i = 3*12+9 then -- A3 (220 Hz)
         -- if i = 4*12+0 then -- C4
+        -- if i = 4*12+1 then -- C#4
+        -- if i = 4*12+2 then -- D4
+        -- if i = 4*12+3 then -- Eb4
+        -- if i = 4*12+4 then -- E4
+        -- if i = 4*12+5 then -- F4
+        -- if i = 4*12+6 then -- F#4
         -- if i = 4*12+7 then -- G4
+        -- if i = 4*12+8 then -- G#4
         if i = 4*12+9 then -- A4 (440 Hz)
+        -- if i = 4*12+10 then -- Bb4
+        -- if i = 4*12+11 then -- B4
         -- if i = 5*12+9 then -- A5 (880 Hz)
         -- if i = 6*12+0 then -- C6
         -- if i = 6*12+9 then -- A6
