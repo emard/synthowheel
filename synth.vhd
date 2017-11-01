@@ -14,8 +14,8 @@ use ieee.math_real.all;
 entity synth is
 generic
 (
-  C_clk_freq: integer := 25000000; -- Hz input clock
-  C_a4_freq: real := 440.0; -- Hz tone A4 tuning
+  C_clk_freq: integer := 25000000; -- Hz system clock
+  C_A4_freq: real := 439.9; -- Hz tone A4 tuning
   C_voice_addr_bits: integer := 7; -- bits voices (2^n voices, timebase counters, volume multipliers)
   C_voice_vol_bits: integer := 10; -- bits signed data for volume of each voice
   C_wav_addr_bits: integer := 10;  -- bits unsigned address for wave time base (time resolution)
@@ -83,11 +83,11 @@ architecture RTL of synth is
 
     -- calculate base frequency, this is lowest possible A, meantone_temperament #9
     constant C_base_freq: real := real(C_clk_freq)*2.0**(C_temperament(9)/1200.0-real(C_voice_addr_bits+C_wav_addr_bits)-real(2**C_voice_addr_bits)/real(C_tones_per_octave) );
-    -- calculate how many float octaves we need to go up to reach C_a4_freq
-    constant C_octave_to_a4: real := log(C_a4_freq/C_base_freq)/log(2.0);
+    -- calculate how many float octaves we need to go up to reach C_A4_freq
+    constant C_octave_to_A4: real := log(C_A4_freq/C_base_freq)/log(2.0);
     -- convert real C_octave_to_a4 into octave integer and cents tuning
-    constant C_shift_octave: integer := integer(C_octave_to_a4)-4;
-    constant C_tuning: real := 1200.0*(C_octave_to_a4-floor(C_octave_to_a4));
+    constant C_shift_octave: integer := integer(C_octave_to_A4)-4;
+    constant C_tuning: real := 1200.0*(C_octave_to_A4-floor(C_octave_to_A4));
 
     constant C_accu_bits: integer := C_voice_vol_bits+C_wav_data_bits+C_voice_addr_bits-C_amplify-1; -- accumulator register width
 
@@ -118,7 +118,7 @@ architecture RTL of synth is
       for i in 0 to len - 1 loop
         octave := i / tones_per_octave; -- octave number
         tone := i mod tones_per_octave; -- tone number
-        y(i) := to_unsigned(integer(2.0**(real(octave)+real(temperament(tone)+C_tuning)/1200.0 + real(bits)-real(len)/real(tones_per_octave))), C_timebase_const_bits);
+        y(i) := to_unsigned(integer(2.0**(real(octave)+real(temperament(tone)+C_tuning)/1200.0 + real(bits)-real(len)/real(tones_per_octave)) + 0.5), C_timebase_const_bits);
       end loop;
       return y;
     end F_freq_table;
@@ -139,7 +139,13 @@ architecture RTL of synth is
         -- if i = 80 then
         -- if i = 7 or i = 21 or i = 22 or i = 23 or i = 24 then -- which voices to enable
         -- if i = 3*12+0 or i = 3*12+1 or i = 3*12+2 or i = 3*12+3 then -- C3, C#3, D3, Eb3
-        if i = 4*12+9 then -- A4 (normally 440Hz)
+        -- if i = 3*12+9 then -- A3 (220 Hz)
+        -- if i = 4*12+0 then -- C4
+        -- if i = 4*12+7 then -- G4
+        if i = 4*12+9 then -- A4 (440 Hz)
+        -- if i = 5*12+9 then -- A5 (880 Hz)
+        -- if i = 6*12+0 then -- C6
+        -- if i = 6*12+9 then -- A6
         -- if i = 115 then -- which voices to enable
           y(j) := to_signed(2**(C_voice_vol_bits-1)-1, C_voice_vol_bits); -- one voice max positive volume
         else

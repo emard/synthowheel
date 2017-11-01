@@ -14,7 +14,8 @@ use xp2.components.all;
 
 entity top_synth is
   generic (
-    C_clk_freq: integer := 25;
+    C_clk_freq: integer := 25000000; -- Hz clock
+    C_A4_freq: real := 440.0; -- Hz tone A4 (normally 440 Hz)
     C_pcm: boolean := true
   );
   port (
@@ -46,12 +47,13 @@ begin
   inst_synth: entity work.synth
     generic map
     (
+      C_clk_freq => C_clk_freq,
+      C_A4_freq => C_A4_freq,
       -- set both to 9 bits so 9x9 multiplier will be used
       C_voice_vol_bits => 10, -- 9: bits signed data for volume of each voice
       C_wav_data_bits => 12, -- 9: bits signed wave amplitude resolution
+      C_wav_addr_bits => 10, -- 10: bits wave function table
       C_timebase_var_bits => 32, -- 19: single 19-bit BRAM will be used as phase accumulator
-      --C_shift_octave => 7,
-      --C_tuning => 0.0,
       C_amplify => 0
     )
     port map
