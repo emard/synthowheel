@@ -3,7 +3,7 @@
 True polyphonic additive synthesizer as parametric VHDL core with 
 realtime performance.
 
-Array of 128 generators can play the waveform as a weighted
+Array of 128 generators simultaneously play waveform as a weighted
 sum of 9 sinewave harmonics per generator, or any user-defined wave function.
 Each generator plays this waveform at different speed and volume, numerically 
 tuned over a range of 10+ octaves with configurable meantones of
