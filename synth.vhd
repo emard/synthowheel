@@ -228,4 +228,5 @@ end;
 -- todo
 -- [x] shift volume by 1 place, the lowest tone (now 127) should be tone 0
 -- [x] apply 12 meantone temperament using 1200 cents table
--- [ ] fix tuning math to work for other than 128 voices
+-- [x] fix tuning math to work for other than 128 voices
+-- [ ] given the max cents error calculate number of phase accumulator bits
