@@ -94,10 +94,28 @@ architecture RTL of synth is
     function F_wav_table(len: integer; bits: integer)
       return T_wav_table is
         variable i: integer;
+        variable w: real; -- omega angular frequency
         variable y: T_wav_table;
     begin
       for i in 0 to len - 1 loop
-        y(i) := to_signed(integer(sin(2.0*3.141592653589793*real(i)/real(len)) * (2.0**real(bits-1)-1.0)), C_wav_data_bits); -- converts sinewave floats to signed number
+        w := 2.0*3.141592653589793*real(i)/real(len); -- w = 2*pi*f
+        -- Hammond drawbars common registrations
+        -- 80 0000 000 -- Sinewave
+        -- 88 8000 000 -- Rock Organ
+        -- 83 4211 100 -- Sawtoothish
+        -- 00 8030 200 -- Squarewavish
+        -- 88 8888 888 -- Full Bright
+        y(i) := to_signed(integer((
+          + 8.0 * sin(1.0*w)  --  1. harmonic BROWN
+          + 8.0 * sin(3.0*w)  --  3. harmonic BROWN
+          + 8.0 * sin(2.0*w)  --  2. harmonic WHITE
+          + 0.0 * sin(4.0*w)  --  4. harmonic WHITE
+          + 0.0 * sin(6.0*w)  --  6. harmonic BLACK
+          + 0.0 * sin(8.0*w)  --  8. harmonic WHITE
+          + 0.0 * sin(10.0*w) -- 10. harmonic BLACK
+          + 0.0 * sin(12.0*w) -- 12. harmonic BLACK
+          + 0.0 * sin(16.0*w) -- 16. harmonic WHITE
+          )/(8.0*9.0) * (2.0**real(bits-1)-1.0)), C_wav_data_bits); -- converts sinewave floats to signed number
       end loop;
       return y;
     end F_wav_table;
@@ -136,6 +154,7 @@ architecture RTL of synth is
         -- if i = 80 then
         -- if i = 7 or i = 21 or i = 22 or i = 23 or i = 24 then -- which voices to enable
         -- if i = 3*12+0 or i = 3*12+1 or i = 3*12+2 or i = 3*12+3 then -- C3, C#3, D3, Eb3
+        -- if i = 3*12+0 or i = 4*12+1 or i = 4*12+2 or i = 4*12+3 then -- C4, C#4, D4, Eb4
         -- if i = 0 then -- C0
         -- if i = 0*12+5 then -- F0
         -- if i = 3*12+9 then -- A3 (220 Hz)
@@ -241,3 +260,5 @@ end;
 -- [x] apply 12 meantone temperament using 1200 cents table
 -- [x] fix tuning math to work for other than 128 voices
 -- [ ] given the max cents error calculate number of phase accumulator bits
+-- [ ] f32c CPU bus interface to alter voice amplitudes
+-- [ ] bus interface to upload waveforms (or a way of changing drawbar registrations)
