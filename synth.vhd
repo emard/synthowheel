@@ -80,7 +80,7 @@ architecture RTL of synth is
     -- output: C_shift_octave, C_tuning_cents
 
     -- calculate base frequency, this is lowest possible A, meantone_temperament #9
-    constant C_base_freq: real := real(C_clk_freq)*2.0**(C_temperament(9)/1200.0-real(C_voice_addr_bits+C_wav_addr_bits)-real(2**C_voice_addr_bits)/real(C_tones_per_octave) );
+    constant C_base_freq: real := real(C_clk_freq)*2.0**(C_temperament(9)/1200.0-real(C_voice_addr_bits+C_pa_data_bits));
     -- calculate how many octaves (floating point) we need to go up to reach C_A4_freq
     constant C_octave_to_A4: real := log(C_A4_freq/C_base_freq)/log(2.0);
     -- convert real C_octave_to_A4 into octave integer and cents tuning
@@ -104,8 +104,8 @@ architecture RTL of synth is
     constant C_wav_table: T_wav_table := F_wav_table(C_wav_table_len, C_wav_data_bits); -- wave table initializer len, amplitude
     
     -- the data type and initializer for the frequencies table
-    constant C_phase_const_bits: integer := C_pa_data_bits-C_wav_addr_bits+C_shift_octave; -- bits for phase accumulator addition constants
     constant C_voice_table_len: integer := 2**C_voice_addr_bits;
+    constant C_phase_const_bits: integer := C_shift_octave+C_voice_table_len/C_tones_per_octave+2; -- bits for phase accumulator addition constants
     type T_freq_table is array (0 to C_voice_table_len-1) of unsigned(C_phase_const_bits-1 downto 0);
     function F_freq_table(len: integer; temperament: T_meantone_temperament; tuning: real; tones_per_octave: integer;  bits: integer)
       return T_freq_table is
@@ -116,7 +116,7 @@ architecture RTL of synth is
       for i in 0 to len - 1 loop
         octave := i / tones_per_octave; -- octave number
         tone := i mod tones_per_octave; -- tone number
-        y(i) := to_unsigned(integer(2.0**(real(octave)+(temperament(tone)+tuning)/1200.0 + real(bits)-real(len)/real(tones_per_octave)) + 0.5), bits);
+        y(i) := to_unsigned(integer(2.0**(real(C_shift_octave+octave)+(temperament(tone)+tuning)/1200.0 + 0.5)), bits);
       end loop;
       return y;
     end F_freq_table;
@@ -177,7 +177,7 @@ begin
     end process;
     -- R_voice contains current address of the voice amplitude and frequency table
 
-    -- increment the time base array in the BRAM
+    -- increment the array of phase accumulators in the BRAM
     S_pa_write_data <= S_pa_read_data + to_integer(C_freq_table(conv_integer(R_voice))); -- next time base incremented with frequency
     -- next value is written on previous address to match register pipeline latency
     S_pa_write_addr <= R_voice - 1;
@@ -226,5 +226,6 @@ begin
 end;
 
 -- todo
--- [ ] shift volume by 1 place, the lowest tone (now 127) should be tone 0
+-- [x] shift volume by 1 place, the lowest tone (now 127) should be tone 0
 -- [x] apply 12 meantone temperament using 1200 cents table
+-- [ ] fix tuning math to work for other than 128 voices
