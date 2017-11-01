@@ -30,8 +30,8 @@ waveform time base for each generator. The array is based on
 Upper bits of the phase accumulator are taken to address waveform
 table data, reading one 16-bit signed waveform value per clock cycle.
 
-On each clock cycle the signed waveform value is multiplied by one of
-128 16-bit volume coefficients and added to output accumulator,
+On each clock cycle the signed waveform value is multiplied by 10-bit volume
+coefficient from 128 element array and added to output accumulator,
 which is latched to provide 16-bit 195 kHz PCM from 25 MHz system clock.
 
 At 25 MHz system clock, 32-bit phase accumulator provides max 0.005 cents
