@@ -16,7 +16,7 @@ generic
 (
   C_clk_freq: integer := 25000000; -- Hz system clock
   C_ref_freq: real := 440.0; -- Hz reference tone frequency (usually 440Hz for tone A4)
-  C_ref_octave: integer := 4; -- reference octave (default 4)
+  C_ref_octave: integer := 5; -- reference octave (default 5)
   C_ref_tone: integer := 9; -- reference tone (default 9, tone A)
   C_voice_addr_bits: integer := 7; -- bits voices (2^n voices, phase accumulators, volume multipliers)
   C_voice_vol_bits: integer := 10; -- bits signed data for volume of each voice
@@ -44,6 +44,8 @@ architecture RTL of synth is
     -- meantone temperament:
     -- tone cents table f=2^(x/1200), 0-1200 scale for full octave of 12 tones
     type T_meantone_temperament is array (0 to C_tones_per_octave-1) of real;
+    -- if temperament starts with C it will match standard MIDI
+    -- key numbering (key 0 is C-1, key 69 is A4 (440 Hz), key 127 is G9)
 
     -- see https://en.wikipedia.org/wiki/Semitone
     -- classical music quarter-comma meantone temperament, chromatic scale
@@ -155,7 +157,7 @@ architecture RTL of synth is
     constant C_freq_table: T_freq_table := F_freq_table(C_voice_table_len, C_temperament, C_tuning_cents, C_tones_per_octave, C_cents_per_octave, C_phase_const_bits); -- wave table initializer len, freq
 
     -- the voice volume constant array for testing
-    -- replace this ith dual port BRAM where CPU writes and synth reads values
+    -- replace this with dual port BRAM where CPU writes and synth reads values
     type T_voice_vol_table is array (0 to C_voice_table_len-1) of signed(C_voice_vol_bits-1 downto 0);
     function F_voice_vol_table(len: integer; bits: integer)
       return T_voice_vol_table is
@@ -168,25 +170,26 @@ architecture RTL of synth is
         -- if i = 7 or i = 21 or i = 22 or i = 23 or i = 24 then -- which voices to enable
         -- if i = 3*12+0 or i = 3*12+1 or i = 3*12+2 or i = 3*12+3 then -- C3, C#3, D3, Eb3
         -- if i = 3*12+0 or i = 4*12+1 or i = 4*12+3 then -- C3, C#4, Eb4
-        -- if i = 0 then -- C0
-        -- if i = 0*12+5 then -- F0
-        -- if i = 3*12+9 then -- A3 (220 Hz)
-        -- if i = 4*12+0 then -- C4
-        -- if i = 4*12+1 then -- C#4
-        -- if i = 4*12+2 then -- D4
-        -- if i = 4*12+3 then -- Eb4
-        -- if i = 4*12+4 then -- E4
-        -- if i = 4*12+5 then -- F4
-        -- if i = 4*12+6 then -- F#4
-        -- if i = 4*12+7 then -- G4
-        -- if i = 4*12+8 then -- G#4
-        if i = 4*12+9 then -- A4 (440 Hz)
-        -- if i = 4*12+10 then -- Bb4
-        -- if i = 4*12+11 then -- B4
-        -- if i = 5*12+9 then -- A5 (880 Hz)
-        -- if i = 6*12+0 then -- C6
-        -- if i = 6*12+9 then -- A6
-        -- if i = 115 then -- which voices to enable
+        -- if i = 0 then -- C-1
+        -- if i = 0*12+5 then -- F-1
+        -- if i = 3*12+9 then -- A2 (110 Hz)
+        -- if i = 4*12+0 then -- C3
+        -- if i = 4*12+1 then -- C#3
+        -- if i = 4*12+2 then -- D3
+        -- if i = 4*12+3 then -- Eb3
+        -- if i = 4*12+4 then -- E3
+        -- if i = 4*12+5 then -- F3
+        -- if i = 4*12+6 then -- F#3
+        -- if i = 4*12+7 then -- G3
+        -- if i = 4*12+8 then -- G#3
+        -- if i = 4*12+9 then -- A3 (220 Hz)
+        -- if i = 4*12+10 then -- Bb3
+        -- if i = 4*12+11 then -- B3
+        if i = 5*12+9 then -- A4 (440 Hz)
+        -- if i = 6*12+9 then -- A5 (880 Hz)
+        -- if i = 6*12+0 then -- C5
+        -- if i = 6*12+9 then -- A5
+        -- if i = 127 then -- G9
           y(j) := to_signed(2**(C_voice_vol_bits-1)-1, C_voice_vol_bits); -- one voice max positive volume
         else
           y(j) := to_signed(0, C_voice_vol_bits); -- others muted

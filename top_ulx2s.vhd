@@ -49,14 +49,14 @@ begin
     (
       C_clk_freq => C_clk_freq,
       C_ref_freq => C_ref_freq,
-      --C_ref_octave => 4,
-      --C_ref_tone => 9,
-      -- set both to 9 bits so 9x9 multiplier will be used
-      --C_voice_addr_bits => 7, -- 7:128 tones (tuning math doesn't tune for other valuesy)
+      --C_ref_octave => 5, -- 5 means octave 4
+      --C_ref_tone => 9, -- 9 means note A
+      --C_voice_addr_bits => 7, -- 7:128 tones, MIDI keys
+      -- setting both voice_vol_bits and wav_data_bits to 9 to use small 9x9 multiplier
       --C_voice_vol_bits => 10, -- 9: bits signed data for volume of each voice
       --C_wav_data_bits => 12, -- 9: bits signed wave amplitude resolution
       --C_wav_addr_bits => 10, -- 10: bits wave function table
-      --C_pa_bits => 32, -- 19: single 19-bit BRAM will be used as phase accumulator
+      --C_pa_bits => 32, -- 32: 2-BRAM precise tuning, 19: 1-BRAM coarse tuning
       C_amplify => 2
     )
     port map
