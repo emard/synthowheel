@@ -6,7 +6,7 @@ realtime performance.
 Array of 128 generators simultaneously plays waveform described as a weighted
 sum of 9 sinewave harmonics per generator, or any user-defined wave function.
 Each generator plays this waveform at different speed and volume, numerically 
-tuned over a range of 10+ octaves with configurable meantones of
+tuned over a full MIDI range of 10+ octaves with configurable meantones of
 quarter-comma temperament, equal temperament or user-defined
 temperament in cents (1/1200).
 The time base is derived from the quartz oscillator with relative
