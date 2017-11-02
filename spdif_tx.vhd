@@ -45,14 +45,14 @@ begin
 
  bit_clock_counter : process (clk)
  begin
-  if clk'event and clk = '1' and R_clkdiv_shift = "01" then
+  if rising_edge(clk) and R_clkdiv_shift = "01" then
    bit_counter <= bit_counter + 1;
   end if;
  end process bit_clock_counter;
 
  data_latch : process (clk)
  begin
-  if clk'event and clk = '1' and R_clkdiv_shift = "01" then
+  if rising_edge(clk) and R_clkdiv_shift = "01" then
    parity <= data_in_buffer(23) xor data_in_buffer(22) xor data_in_buffer(21) xor data_in_buffer(20) xor data_in_buffer(19) xor data_in_buffer(18) xor data_in_buffer(17)  xor data_in_buffer(16) xor data_in_buffer(15) xor data_in_buffer(14) xor data_in_buffer(13) xor data_in_buffer(12) xor data_in_buffer(11) xor data_in_buffer(10) xor data_in_buffer(9) xor data_in_buffer(8) xor data_in_buffer(7) xor data_in_buffer(6) xor data_in_buffer(5) xor data_in_buffer(4) xor data_in_buffer(3) xor data_in_buffer(2) xor data_in_buffer(1) xor data_in_buffer(0) xor channel_status_shift(23);
    if bit_counter = "000011" then
     data_in_buffer <= data_in;
@@ -69,7 +69,7 @@ begin
 
  data_output : process (clk)
  begin
-  if clk'event and clk = '1' and R_clkdiv_shift = "01" then
+  if rising_edge(clk) and R_clkdiv_shift = "01" then
    if bit_counter = "111111" then
     if frame_counter = "101111111" then -- next frame is 0, load preamble Z
      address_out <= '0';
@@ -113,7 +113,7 @@ begin
  
  biphaser : process (clk)
  begin
-  if clk'event and clk = '1' and R_clkdiv_shift = "01" then
+  if rising_edge(clk) and R_clkdiv_shift = "01" then
    if data_out_buffer(data_out_buffer'left) = '1' then
     data_biphase <= not data_biphase;
    end if;
