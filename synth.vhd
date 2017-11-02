@@ -15,14 +15,15 @@ entity synth is
 generic
 (
   C_clk_freq: integer := 25000000; -- Hz system clock
-  C_A4_freq: real := 440.0; -- Hz tone A4 tuning
+  C_ref_freq: real := 440.0; -- Hz reference tone frequency (usually 440Hz for tone A4)
+  C_ref_octave: integer := 4; -- reference octave (default 4)
+  C_ref_tone: integer := 9; -- reference tone (default 9, tone A)
   C_voice_addr_bits: integer := 7; -- bits voices (2^n voices, phase accumulators, volume multipliers)
   C_voice_vol_bits: integer := 10; -- bits signed data for volume of each voice
   C_wav_addr_bits: integer := 10;  -- bits unsigned address for wave time base (time resolution)
   C_wav_data_bits: integer := 12; -- bits signed wave amplitude resolution
   C_pa_data_bits: integer := 32; -- bits of data in phase accumulator BRAM
   C_amplify: integer := 0; -- bits louder output but reduces max number of voices by 2^n (clipping)
-  C_tones_per_octave: integer := 12; -- tones per octave (don't touch)
   C_out_bits: integer := 16 -- bits of signed accumulator data (PCM)
 );
 port
@@ -37,6 +38,9 @@ port
 end;
 
 architecture RTL of synth is
+    constant C_tones_per_octave: integer := 12; -- tones per octave
+    constant C_cents_per_octave: real := 1200.0; -- cents (tuning) per octave
+
     -- meantone temperament:
     -- tone cents table f=2^(x/1200), 0-1200 scale for full octave of 12 tones
     type T_meantone_temperament is array (0 to C_tones_per_octave-1) of real;
@@ -77,18 +81,18 @@ architecture RTL of synth is
 
     -- Select which temperament to use 
     constant C_temperament: T_meantone_temperament := C_quarter_comma_temperament;
-    
+
     -- tuning math:
-    -- input: C_clk_freq, C_A4_freq, C_wav_addr_bits, C_voice_addr_bits
+    -- input: C_clk_freq, C_ref_freq, C_ref_octave, C_ref_note, C_pa_data_bits, C_voice_addr_bits
     -- output: C_shift_octave, C_tuning_cents
 
     -- calculate base frequency, this is lowest possible A, meantone_temperament #9
-    constant C_base_freq: real := real(C_clk_freq)*2.0**(C_temperament(9)/1200.0-real(C_voice_addr_bits+C_pa_data_bits));
-    -- calculate how many octaves (floating point) we need to go up to reach C_A4_freq
-    constant C_octave_to_A4: real := log(C_A4_freq/C_base_freq)/log(2.0);
-    -- convert real C_octave_to_A4 into octave integer and cents tuning
-    constant C_shift_octave: integer := integer(C_octave_to_A4)-4;
-    constant C_tuning_cents: real := 1200.0*(C_octave_to_A4-floor(C_octave_to_A4));
+    constant C_base_freq: real := real(C_clk_freq)*2.0**(C_temperament(C_ref_tone)/C_cents_per_octave-real(C_voice_addr_bits+C_pa_data_bits));
+    -- calculate how many octaves (floating point) we need to go up to reach C_ref_freq
+    constant C_octave_to_ref: real := log(C_ref_freq/C_base_freq)/log(2.0);
+    -- convert real C_octave_to_ref into octave integer and cents tuning
+    constant C_shift_octave: integer := integer(C_octave_to_ref)-C_ref_octave;
+    constant C_tuning_cents: real := C_cents_per_octave*(C_octave_to_ref-floor(C_octave_to_ref));
 
     constant C_accu_bits: integer := C_voice_vol_bits+C_wav_data_bits+C_voice_addr_bits-C_amplify-1; -- accumulator register width
 
@@ -98,11 +102,12 @@ architecture RTL of synth is
     -- Hammond common registrations
     constant C_drawbar_sinewave:   T_drawbar_table := (8.0,0.0, 0.0,0.0,0.0,0.0, 0.0,0.0,0.0);
     constant C_drawbar_rockorgan:  T_drawbar_table := (8.0,8.0, 8.0,0.0,0.0,0.0, 0.0,0.0,0.0);
+    constant C_drawbar_metalorgan: T_drawbar_table := (8.0,3.0, 1.0,0.0,1.0,0.0, 0.3,0.0,0.0);
     constant C_drawbar_sawtooth:   T_drawbar_table := (8.0,3.0, 4.0,2.0,1.0,1.0, 1.0,0.0,0.0);
     constant C_drawbar_squarewave: T_drawbar_table := (0.0,0.0, 8.0,0.0,3.0,0.0, 2.0,0.0,0.0);
     constant C_drawbar_fullbright: T_drawbar_table := (8.0,8.0, 8.0,8.0,8.0,8.0, 8.0,8.0,8.0);
     -- choose registration
-    constant C_drawbar_registration: T_drawbar_table := C_drawbar_rockorgan; -- choose registration
+    constant C_drawbar_registration: T_drawbar_table := C_drawbar_metalorgan; -- choose registration
 
     constant C_wav_table_len: integer := 2**C_wav_addr_bits;
     type T_wav_table is array (0 to C_wav_table_len-1) of signed(C_wav_data_bits-1 downto 0);
@@ -134,7 +139,7 @@ architecture RTL of synth is
     constant C_voice_table_len: integer := 2**C_voice_addr_bits;
     constant C_phase_const_bits: integer := C_shift_octave+C_voice_table_len/C_tones_per_octave+2; -- bits for phase accumulator addition constants
     type T_freq_table is array (0 to C_voice_table_len-1) of unsigned(C_phase_const_bits-1 downto 0);
-    function F_freq_table(len: integer; temperament: T_meantone_temperament; tuning: real; tones_per_octave: integer;  bits: integer)
+    function F_freq_table(len: integer; temperament: T_meantone_temperament; tuning: real; tones_per_octave: integer; cents_per_octave: real;  bits: integer)
       return T_freq_table is
         variable i: integer;
         variable octave, tone: integer;
@@ -143,11 +148,11 @@ architecture RTL of synth is
       for i in 0 to len - 1 loop
         octave := i / tones_per_octave; -- octave number
         tone := i mod tones_per_octave; -- meantone number
-        y(i) := to_unsigned(integer(2.0**(real(C_shift_octave+octave)+(temperament(tone)+tuning)/1200.0)+0.5), bits);
+        y(i) := to_unsigned(integer(2.0**(real(C_shift_octave+octave)+(temperament(tone)+tuning)/cents_per_octave)+0.5), bits);
       end loop;
       return y;
     end F_freq_table;
-    constant C_freq_table: T_freq_table := F_freq_table(C_voice_table_len, C_temperament, C_tuning_cents, C_tones_per_octave, C_phase_const_bits); -- wave table initializer len, freq
+    constant C_freq_table: T_freq_table := F_freq_table(C_voice_table_len, C_temperament, C_tuning_cents, C_tones_per_octave, C_cents_per_octave, C_phase_const_bits); -- wave table initializer len, freq
 
     -- the voice volume constant array for testing
     -- replace this ith dual port BRAM where CPU writes and synth reads values
@@ -159,8 +164,7 @@ architecture RTL of synth is
     begin
       for i in 0 to len - 1 loop
         j := (i-1+len) mod len; -- shift by 1 to match pipeline delay
-        -- if i = 1 or i = 2 or i = 3 or i = 4 then -- which voices to enable
-        -- if i = 80 then
+        -- if i = 0 or i = 1 or i = 2 or i = 3 then -- which voices to enable
         -- if i = 7 or i = 21 or i = 22 or i = 23 or i = 24 then -- which voices to enable
         -- if i = 3*12+0 or i = 3*12+1 or i = 3*12+2 or i = 3*12+3 then -- C3, C#3, D3, Eb3
         -- if i = 3*12+0 or i = 4*12+1 or i = 4*12+3 then -- C3, C#4, Eb4
