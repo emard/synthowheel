@@ -12,6 +12,9 @@
         <Source name="../pcm.vhd" type="VHDL" type_short="VHDL">
             <Options/>
         </Source>
+        <Source name="../spdif_tx.vhd" type="VHDL" type_short="VHDL">
+            <Options/>
+        </Source>
         <Source name="../bram_true2p_1clk.vhd" type="VHDL" type_short="VHDL">
             <Options/>
         </Source>

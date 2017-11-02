@@ -39,6 +39,9 @@ architecture Behavioral of top_synth is
   signal btn: std_logic_vector(4 downto 0);
   signal S_pcm: signed(15 downto 0);
   signal S_out_l, S_out_r: std_logic;
+  signal S_spdif_sample: std_logic_vector(23 downto 0);
+  signal S_spdif_sample_pad: signed(7 downto 0);
+  signal S_spdif_out: std_logic;
 begin
   clk <= clk_25m;
   btn <= btn_left & btn_right & btn_up & btn_down & btn_center;
@@ -57,7 +60,7 @@ begin
       --C_wav_data_bits => 12, -- 9: bits signed wave amplitude resolution
       --C_wav_addr_bits => 10, -- 10: bits wave function table
       --C_pa_bits => 32, -- 32: 2-BRAM precise tuning, 19: 1-BRAM coarse tuning
-      C_amplify => 2
+      C_amplify => 0
     )
     port map
     (
@@ -73,7 +76,7 @@ begin
   -- led(4 downto 0) <= btn;
   led <= std_logic_vector(S_pcm(S_pcm'length-1 downto S_pcm'length-led'length));
 
-    inst_pcm: entity work.pcm
+  inst_pcm: entity work.pcm
     port map
     (
         clk => clk,
@@ -83,8 +86,28 @@ begin
         out_r => S_out_r
     );
 
-    p_ring <= S_out_l;
-    p_tip <= (others => S_out_r);
-    j1_19 <= S_out_l;
+  -- LSB padding
+  S_spdif_sample_pad <= (others => S_pcm(0));
+  -- sending signed 24-bit PCM data (padded)
+  S_spdif_sample <= std_logic_vector( S_pcm & S_spdif_sample_pad );
+  -- conversion to unsigned PCM
+  -- by inverting MSB bit (effectively adding 0x8000)
+  -- and downshfting by 1 bit (sending effectively 23-bit data)
+  -- S_spdif_sample <= std_logic_vector( '0' & (not S_pcm(15)) & S_pcm(14 downto 0) & S_spdif_sample_pad );
+  inst_spdif_tx: entity work.spdif_tx
+  generic map
+  (
+    C_clk_freq => C_clk_freq
+  )
+  port map
+  (
+    clk => clk,
+    data_in => S_spdif_sample,
+    spdif_out => S_spdif_out
+  );
+
+  p_ring <= S_out_l;
+  p_tip <= "00" & S_spdif_out & S_spdif_out;
+  j1_19 <= S_out_l;
 
 end Behavioral;
