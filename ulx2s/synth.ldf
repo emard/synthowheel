@@ -9,7 +9,7 @@
         <Source name="../synth.vhd" type="VHDL" type_short="VHDL">
             <Options/>
         </Source>
-        <Source name="../pcm.vhd" type="VHDL" type_short="VHDL">
+        <Source name="../sigmadelta.vhd" type="VHDL" type_short="VHDL">
             <Options/>
         </Source>
         <Source name="../spdif_tx.vhd" type="VHDL" type_short="VHDL">

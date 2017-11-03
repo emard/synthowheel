@@ -21,7 +21,8 @@ xc3sprog_interface = ftdi
 vhdfiles = \
 ../top_scarab.vhd \
 ../synth.vhd \
-../pcm.vhd \
+../sigmadelta.vhd \
+../spdif_tx.vhd \
 ../bram_true2p_1clk.vhd \
 
 

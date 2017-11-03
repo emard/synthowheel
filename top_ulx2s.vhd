@@ -36,16 +36,15 @@ end;
 
 architecture Behavioral of top_synth is
   signal clk: std_logic;
-  signal btn: std_logic_vector(4 downto 0);
+  signal btn: std_logic_vector(6 downto 0);
   signal S_pcm: signed(15 downto 0);
-  signal S_out_l, S_out_r: std_logic;
+  signal S_pwm: std_logic;
   signal S_spdif_sample: std_logic_vector(23 downto 0);
   signal S_spdif_sample_pad: signed(7 downto 0);
   signal S_spdif_out: std_logic;
 begin
   clk <= clk_25m;
-  btn <= btn_left & btn_right & btn_up & btn_down & btn_center;
-  
+  btn <= "00" & btn_left & btn_right & btn_up & btn_down & btn_center; -- center button is tone A4
 
   inst_synth: entity work.synth
     generic map
@@ -60,30 +59,29 @@ begin
       --C_wav_data_bits => 12, -- 9: bits signed wave amplitude resolution
       --C_wav_addr_bits => 10, -- 10: bits wave function table
       --C_pa_bits => 32, -- 32: 2-BRAM precise tuning, 19: 1-BRAM coarse tuning
+      C_keyboard => true,
       C_amplify => 0
     )
     port map
     (
       clk => clk,
-      bus_ce => '0',
-      bus_write => '0',
-      bus_byte_sel => (others => '0'),
-      bus_addr => (others => '0'),
-      bus_in => (others => '0'),
+      io_ce => '0',
+      io_bus_write => '0',
+      io_byte_sel => (others => '0'),
+      io_addr => (others => '0'),
+      io_bus_in => (others => '0'),
+      keyboard => btn,
       pcm_out => S_pcm
     );
 
-  -- led(4 downto 0) <= btn;
   led <= std_logic_vector(S_pcm(S_pcm'length-1 downto S_pcm'length-led'length));
 
-  inst_pcm: entity work.pcm
+  inst_sigmadelta: entity work.sigmadelta
     port map
     (
         clk => clk,
-        in_pcm_l => S_pcm,
-        in_pcm_r => S_pcm,
-        out_l => S_out_l,
-        out_r => S_out_r
+        in_pcm => S_pcm,
+        out_pwm => S_pwm
     );
 
   -- LSB padding
@@ -106,8 +104,8 @@ begin
     spdif_out => S_spdif_out
   );
 
-  p_ring <= S_out_l;
+  p_ring <= S_pwm;
   p_tip <= "00" & S_spdif_out & S_spdif_out;
-  j1_19 <= S_out_l;
+  j1_19 <= S_pwm; -- to monitor with oscilloscope
 
 end Behavioral;
