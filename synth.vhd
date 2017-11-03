@@ -27,7 +27,7 @@ generic
   C_pa_data_bits: integer := 32; -- bits of data in phase accumulator BRAM
   C_amplify: integer := 0; -- bits louder output but reduces max number of voices by 2^n (clipping)
   C_keyboard: boolean := false; -- Generate tone A4 (440 Hz) and few others with simple keyboard
-  C_out_bits: integer := 16 -- bits of signed accumulator data (PCM)
+  C_out_bits: integer := 24 -- bits of signed PCM output data
 );
 port
 (
@@ -37,7 +37,7 @@ port
   io_bus_in: in std_logic_vector(C_data_bits-1 downto 0);
   keyboard: in std_logic_vector(6 downto 0); -- single octave simple keyboard
   -- led: out std_logic_vector(7 downto 0);
-  pcm_out: out signed(15 downto 0) -- to audio output
+  pcm_out: out signed(C_out_bits-1 downto 0) -- to audio output
 );
 end;
 
@@ -227,15 +227,15 @@ begin
     -- bus write, synth read from addressed BRAM the volume of current voice
     yes_test_keyboard: if C_keyboard generate
       S_vv_write <= '1'; -- debug testing to generate some tone
-      S_vv_write_addr <= R_voice;
+      S_vv_write_addr <= S_pa_write_addr;
       S_vv_write_data <= std_logic_vector(to_unsigned(C_voice_max_volume, C_voice_vol_bits)) -- max volume
-        when (conv_integer(R_voice) = 4*12+9  and keyboard(0) = '1') -- 69: tone A4 (440 Hz)
-        or   (conv_integer(R_voice) = 4*12+11 and keyboard(1) = '1') -- B4
-        or   (conv_integer(R_voice) = 5*12+0  and keyboard(2) = '1') -- C5
-        or   (conv_integer(R_voice) = 5*12+2  and keyboard(3) = '1') -- D5
-        or   (conv_integer(R_voice) = 5*12+4  and keyboard(4) = '1') -- E5
-        or   (conv_integer(R_voice) = 5*12+5  and keyboard(5) = '1') -- F5
-        or   (conv_integer(R_voice) = 5*12+6  and keyboard(6) = '1') -- G5
+        when (conv_integer(R_voice) = 5*12+9  and keyboard(0) = '1') -- A4 (440 Hz)
+        or   (conv_integer(R_voice) = 3*12+11 and keyboard(1) = '1') -- B2
+        or   (conv_integer(R_voice) = 4*12+0  and keyboard(2) = '1') -- C3
+        or   (conv_integer(R_voice) = 4*12+2  and keyboard(3) = '1') -- D3
+        or   (conv_integer(R_voice) = 4*12+4  and keyboard(4) = '1') -- E3
+        or   (conv_integer(R_voice) = 4*12+5  and keyboard(5) = '1') -- F3
+        or   (conv_integer(R_voice) = 4*12+6  and keyboard(6) = '1') -- G3
         else (others => '0');
     end generate;
     no_test_keyboard: if not C_keyboard generate

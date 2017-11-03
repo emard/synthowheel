@@ -35,12 +35,12 @@ entity top_synth is
 end;
 
 architecture Behavioral of top_synth is
+  constant C_pcm_bits: integer := 24; -- 24 bits to match SPDIF output
+  constant C_pwm_bits: integer := 12; -- less or equal C_pcm bits, 12 works well
   signal clk: std_logic;
   signal btn: std_logic_vector(6 downto 0);
-  signal S_pcm: signed(15 downto 0);
+  signal S_pcm: signed(C_pcm_bits-1 downto 0);
   signal S_pwm: std_logic;
-  signal S_spdif_sample: std_logic_vector(23 downto 0);
-  signal S_spdif_sample_pad: signed(7 downto 0);
   signal S_spdif_out: std_logic;
 begin
   clk <= clk_25m;
@@ -60,6 +60,7 @@ begin
       --C_wav_addr_bits => 10, -- 10: bits wave function table
       --C_pa_bits => 32, -- 32: 2-BRAM precise tuning, 19: 1-BRAM coarse tuning
       C_keyboard => true,
+      C_out_bits => C_pcm_bits,
       C_amplify => 0
     )
     port map
@@ -77,21 +78,18 @@ begin
   led <= std_logic_vector(S_pcm(S_pcm'length-1 downto S_pcm'length-led'length));
 
   inst_sigmadelta: entity work.sigmadelta
+    generic map
+    (
+      C_bits => C_pwm_bits
+    )
     port map
     (
-        clk => clk,
-        in_pcm => S_pcm,
-        out_pwm => S_pwm
+      clk => clk,
+      in_pcm => S_pcm(S_pcm'length-1 downto S_pcm'length-C_pwm_bits),
+      out_pwm => S_pwm
     );
 
-  -- LSB padding
-  S_spdif_sample_pad <= (others => S_pcm(0));
-  -- sending signed 24-bit PCM data (padded)
-  S_spdif_sample <= std_logic_vector( S_pcm & S_spdif_sample_pad );
-  -- conversion to unsigned PCM
-  -- by inverting MSB bit (effectively adding 0x8000)
-  -- and downshfting by 1 bit (sending effectively 23-bit data)
-  -- S_spdif_sample <= std_logic_vector( '0' & (not S_pcm(15)) & S_pcm(14 downto 0) & S_spdif_sample_pad );
+  -- spdif_tx needs 24-bit signed input
   inst_spdif_tx: entity work.spdif_tx
   generic map
   (
@@ -100,7 +98,7 @@ begin
   port map
   (
     clk => clk,
-    data_in => S_spdif_sample,
+    data_in => std_logic_vector(S_pcm),
     spdif_out => S_spdif_out
   );
 
