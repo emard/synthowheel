@@ -17,7 +17,9 @@ Polyphonic synthesis is inspired by a set of multiple rotating
 [tonewheels](https://en.wikipedia.org/wiki/Tonewheel) with
 electromagnetic pickups like found in
 [Hammond organ](https://en.wikipedia.org/wiki/Hammond_organ) which
-has a set of drawbars that mix sinewave harmonics to produce characteristic
+has a set of
+[drawbars](http://www.stefanv.com/electronics/hammond_drawbar_science.html)
+that mix sinewave harmonics to produce characteristic
 [tonewheel waveforms](https://www.soundonsound.com/techniques/synthesizing-tonewheel-organs).
 No intention is made to fully reproduce historic sound, but 
 to produce numerically controled polyphonic synth with FPGA.
