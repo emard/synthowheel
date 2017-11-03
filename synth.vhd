@@ -51,7 +51,9 @@ architecture RTL of synth is
     -- key numbering (key 0 is C-1, key 69 is A4 (440 Hz), key 127 is G9)
 
     -- see https://en.wikipedia.org/wiki/Semitone
-    -- classical music quarter-comma meantone temperament, chromatic scale
+    -- http://www.kylegann.com/tuning.html
+
+    -- classical 16-century music quarter-comma meantone temperament, chromatic scale
     constant C_quarter_comma_temperament: T_meantone_temperament :=
     (
          0.0, --  0 C
@@ -67,7 +69,43 @@ architecture RTL of synth is
       1006.8, -- 10 Bb
       1082.9  -- 11 B
     );
+    
+    -- Ben Johnston's Suite for Microtonal Piano (1977)
+    constant C_microtonal_piano_temperament: T_meantone_temperament :=
+    (
+         0.0, --  0 C
+       105.0, --  1 C#
+       203.9, --  2 D
+       297.5, --  3 Eb
+       386.3, --  4 E
+       470.8, --  5 F
+       551.3, --  6 F#
+       702.0, --  7 G
+       840.5, --  8 G#
+       905.9, --  9 A
+       968.8, -- 10 Bb
+      1088.3  -- 11 B
+    );
 
+    -- Hammond temperament targets equal-temperament, but 
+    -- due to constructional reasons, some tones are slightly off-tune
+    constant C_hammond_temperament: T_meantone_temperament :=
+    (
+         0.0,        --  0 C
+        99.89267627, --  1 C#
+       200.7760963,  --  2 D
+       300.488157,   --  3 Eb
+       400.180858,   --  4 E
+       499.8955969,  --  5 F
+       600.6025772,  --  6 F#
+       700.5966375,  --  7 G
+       799.8695005,  --  8 G#
+       900.5764808,  --  9 A
+      1000.29122,    -- 10 Bb
+      1099.983921    -- 11 B
+    );
+
+    -- equal temperament aka EDO-12 is default for MIDI instruments
     constant C_equal_temperament: T_meantone_temperament :=
     (
          0.0, --  0 C
@@ -85,7 +123,7 @@ architecture RTL of synth is
     );
 
     -- Select which temperament to use 
-    constant C_temperament: T_meantone_temperament := C_quarter_comma_temperament;
+    constant C_temperament: T_meantone_temperament := C_hammond_temperament;
 
     -- tuning math:
     -- input: C_clk_freq, C_ref_freq, C_ref_octave, C_ref_note, C_pa_data_bits, C_voice_addr_bits
@@ -106,14 +144,22 @@ architecture RTL of synth is
     constant C_drawbar_harmonic:   T_drawbar_table := (1,3, 2,4,6,8, 10,12,16);
     -- Hammond common registrations see http://www.keyboardservice.com/Drawbars.asp
     constant C_drawbar_sinewave:   T_drawbar_table := (8,0, 0,0,0,0, 0,0,0);
-    constant C_drawbar_rockorgan:  T_drawbar_table := (8,8, 8,0,0,0, 0,0,0);
-    constant C_drawbar_metalorgan: T_drawbar_table := (8,3, 1,0,1,0, 0,0,0);
+    constant C_drawbar_rockorgan:  T_drawbar_table := (8,8, 8,2,0,0, 0,0,0);
+    constant C_drawbar_metalorgan: T_drawbar_table := (8,7, 5,0,5,0, 0,0,0);
     constant C_drawbar_sawtooth:   T_drawbar_table := (8,3, 4,2,1,1, 1,0,0);
     constant C_drawbar_squarewave: T_drawbar_table := (0,0, 8,0,3,0, 2,0,0);
     constant C_drawbar_fullbright: T_drawbar_table := (8,8, 8,8,8,8, 8,8,8);
+    constant C_drawbar_englishorn: T_drawbar_table := (0,0, 3,5,7,7, 5,4,0);
     constant C_drawbar_brojack:    T_drawbar_table := (8,0, 0,0,0,0, 8,8,8);
+    constant C_drawbar_vocalist:   T_drawbar_table := (7,8, 4,3,0,0, 0,0,0);
+    constant C_drawbar_stringensamble: T_drawbar_table := (4,0, 5,5,4,5, 3,3,6);
+    constant C_drawbar_silky:      T_drawbar_table := (8,0, 8,0,0,0, 0,0,8);
+    constant C_drawbar_fatt:       T_drawbar_table := (8,8, 8,0,0,0, 8,8,8);
+    constant C_drawbar_evilways:   T_drawbar_table := (8,8, 6,4,0,0, 0,0,0);
+    constant C_drawbar_itsonlylove:T_drawbar_table := (6,4, 8,8,4,8, 4,4,8);
+    constant C_drawbar_whitershadeofpale: T_drawbar_table := (6,8, 8,6,0,0, 0,0,0);
     -- choose registration
-    constant C_drawbar_registration: T_drawbar_table := C_drawbar_brojack; -- choose registration
+    constant C_drawbar_registration: T_drawbar_table := C_drawbar_metalorgan; -- choose registration
 
     constant C_wav_table_len: integer := 2**C_wav_addr_bits;
     type T_wav_table is array (0 to C_wav_table_len-1) of signed(C_wav_data_bits-1 downto 0);
