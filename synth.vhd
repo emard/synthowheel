@@ -140,7 +140,7 @@ architecture RTL of synth is
     -- calculate how many octaves (floating point) we need to go up to reach C_ref_freq
     constant C_octave_to_ref: real := log(C_ref_freq/C_base_freq)/log(2.0);
     -- convert real C_octave_to_ref into octave integer and cents tuning, add upshifting here
-    constant C_shift_octave: integer := integer(floor(C_octave_to_ref))-C_ref_octave+(C_voice_addr_bits+C_pa_data_bits);
+    constant C_shift_octave: integer := integer(floor(C_octave_to_ref))+C_voice_addr_bits+C_pa_data_bits-C_ref_octave;
     constant C_tuning_cents: real := C_cents_per_octave*(C_octave_to_ref-floor(C_octave_to_ref));
 
     constant C_accu_bits: integer := C_voice_vol_bits+C_wav_data_bits+C_voice_addr_bits-C_amplify-1; -- accumulator register width
