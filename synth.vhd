@@ -127,6 +127,7 @@ architecture RTL of synth is
 
     -- drawbars are heart and soul of Hammond organ
     constant C_drawbar_count: integer := 9; -- number of Hammond-type drawbars
+    constant C_drawbar_count2: integer := C_drawbar_count; -- normally same as above, but different value possible to test tuning math
     constant C_drawbar_max: integer := 8; -- 8: max drawbar value 8
     constant C_drawbar_bits: integer := 4; -- 4: drawbar bits to represent values 0-max
 
@@ -134,12 +135,12 @@ architecture RTL of synth is
     -- input: C_clk_freq, C_ref_freq, C_ref_octave, C_ref_note, C_pa_data_bits, C_voice_addr_bits
     -- output: C_shift_octave, C_tuning_cents
 
-    -- calculate base frequency, this is lowest possible A, meantone_temperament #9
-    constant C_base_freq: real := real(C_clk_freq/C_drawbar_count)*2.0**(C_temperament(C_ref_tone)/C_cents_per_octave-real(C_voice_addr_bits+C_pa_data_bits));
+    -- calculate base frequency, this is lowest possible A, meantone_temperament #9, upshifted by (C_voice_addr_bits+C_pa_data_bits) octaves
+    constant C_base_freq: real := real(C_clk_freq)/real(C_drawbar_count2)*2.0**(C_temperament(C_ref_tone)/C_cents_per_octave);
     -- calculate how many octaves (floating point) we need to go up to reach C_ref_freq
     constant C_octave_to_ref: real := log(C_ref_freq/C_base_freq)/log(2.0);
-    -- convert real C_octave_to_ref into octave integer and cents tuning
-    constant C_shift_octave: integer := integer(floor(C_octave_to_ref))-C_ref_octave;
+    -- convert real C_octave_to_ref into octave integer and cents tuning, add upshifting here
+    constant C_shift_octave: integer := integer(floor(C_octave_to_ref))-C_ref_octave+(C_voice_addr_bits+C_pa_data_bits);
     constant C_tuning_cents: real := C_cents_per_octave*(C_octave_to_ref-floor(C_octave_to_ref));
 
     constant C_accu_bits: integer := C_voice_vol_bits+C_wav_data_bits+C_voice_addr_bits-C_amplify-1; -- accumulator register width
@@ -212,7 +213,7 @@ architecture RTL of synth is
     
     constant C_voice_max_volume: integer := 2**(C_voice_vol_bits-1)-1;
 
-    signal R_drawbar: integer range 0 to C_drawbar_count-1; -- currently processed drawbar number
+    signal R_drawbar: integer range 0 to C_drawbar_count2-1; -- currently processed drawbar number
     signal R_db_done: std_logic; -- done with all drawbars, proceed to next voice
     signal R_db_registration: std_logic_vector(C_drawbar_count*C_drawbar_bits-1 downto 0) := x"888000000"; -- current drawbar registration sstate
     signal R_voice, R_voice_prev, S_pa_write_addr: std_logic_vector(C_voice_addr_bits-1 downto 0); -- currently processed voice, destination of increment
@@ -231,7 +232,7 @@ begin
     process(clk)
     begin
       if rising_edge(clk) then
-        if R_drawbar = C_drawbar_count-1 then
+        if R_drawbar = C_drawbar_count2-1 then
           R_drawbar <= 0;
           R_db_done <= '1';
           R_voice <= R_voice + 1;
@@ -336,7 +337,7 @@ begin
         end if;
         -- valid multiplied data appear when drawbar 3 is processing
         -- but lets latch at last drawbar to allow extra cycles for mul to settle down
-        if R_drawbar = C_drawbar_count-1 then
+        if R_drawbar = C_drawbar_count2-1 then
           if conv_integer(R_voice) = 0 then -- output-ready R_accu appears 3 clocks after R_voice=0
             R_output <= R_accu(C_accu_bits-1 downto C_accu_bits-C_out_bits);
             R_accu <= (others => '0'); -- reset accumulator
