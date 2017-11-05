@@ -60,6 +60,7 @@ begin
       --C_wav_addr_bits => 10, -- 10: bits wave function table
       --C_pa_bits => 32, -- 32: 2-BRAM precise tuning, 19: 1-BRAM coarse tuning
       C_keyboard => true,
+      C_zero_cross => true,
       C_out_bits => C_pcm_bits,
       C_amplify => 0
     )

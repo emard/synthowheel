@@ -42,7 +42,5 @@ A4 has 0.0002 cents error. One octave has 1200 cents.
 
 # TODO
 
-This core should listen on a bus and let external CPU (f32c) receive
-MIDI commands and update key generator volumes in real time, 
-providing a proper sound envelope for each key and make it all behave
-like electronic organ or something.
+[x] Listen on f32c
+[x] zero-cross volume update (no clicks)
