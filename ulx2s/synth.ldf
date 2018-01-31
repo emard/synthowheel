@@ -3,7 +3,7 @@
     <Options/>
     <Implementation title="project" dir="project" description="project" synthesis="synplify" default_strategy="Strategy1">
         <Options def_top="top_synth" top="top_synth"/>
-        <Source name="../top_ulx2s.vhd" type="VHDL" type_short="VHDL">
+        <Source name="top/top_ulx2s.vhd" type="VHDL" type_short="VHDL">
             <Options top_module="top_synth"/>
         </Source>
         <Source name="../synth.vhd" type="VHDL" type_short="VHDL">
