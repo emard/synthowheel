@@ -19,7 +19,7 @@ xc3sprog_interface = ftdi
 #../../../../soc/pid/rotary_decoder_v.v \
 
 vhdfiles = \
-../top_scarab.vhd \
+top/top_scarab.vhd \
 ../synth.vhd \
 ../sigmadelta.vhd \
 ../spdif_tx.vhd \
