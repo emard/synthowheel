@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<BaliProject version="3.2" title="project" device="LFE5U-45F-6BG381C" default_implementation="project">
+    <Options/>
+    <Implementation title="project" dir="project" description="project" synthesis="synplify" default_strategy="Strategy1">
+        <Options def_top="top_synth" top="top_synth"/>
+        <Source name="top/top_ulx3s.vhd" type="VHDL" type_short="VHDL">
+            <Options top_module="top_synth"/>
+        </Source>
+        <Source name="../synth.vhd" type="VHDL" type_short="VHDL">
+            <Options/>
+        </Source>
+        <Source name="../sigmadelta.vhd" type="VHDL" type_short="VHDL">
+            <Options/>
+        </Source>
+        <Source name="../spdif_tx.vhd" type="VHDL" type_short="VHDL">
+            <Options/>
+        </Source>
+        <Source name="../bram_true2p_1clk.vhd" type="VHDL" type_short="VHDL">
+            <Options/>
+        </Source>
+        <Source name="ulx3s_v18.lpf" type="Logic Preference" type_short="LPF">
+            <Options/>
+        </Source>
+    </Implementation>
+    <Strategy name="Strategy1" file="ulx3s_sram1.sty"/>
+</BaliProject>
