@@ -31,6 +31,7 @@ generic
   C_pa_data_bits: integer := 32; -- bits of data in phase accumulator BRAM
   C_amplify: integer := 0; -- bits louder output but reduces max number of voices by 2^n (clipping)
   C_multiplier: boolean := true; -- true: true signed multiplier, false: simple off/on
+  C_multiplier_sign_fix: boolean := false; -- true: fix if unsigned multiplier is incorrectly infered for signed arguments
   C_keyboard: boolean := false; -- false: CPU bus input, true: keyboard input (generates tone A4 (440 Hz) and few others)
   C_zero_cross: boolean := false; -- updates at zero cross (remove clicks) expense 1 extra BRAM
   C_out_bits: integer := 24 -- bits of signed PCM output data
@@ -367,8 +368,12 @@ begin
     -- waveform data reading (delayed 1 clock, address R_voice-1)
     S_wav_data <= C_wav_table(conv_integer(S_pa_read_data(C_pa_data_bits-1 downto C_pa_data_bits-C_wav_addr_bits)));
 
-    yes_multiplier: if C_multiplier generate
+    yes_multiplier_normal: if C_multiplier_sign_fix and not C_multiplier_sign_fix generate
       S_multiplied <= R_voice_vol * R_wav_data;
+    end generate;
+    yes_multiplier_sign_fix: if C_multiplier and C_multiplier_sign_fix generate
+      -- hopfully this expression will optimize down to a single multiplier
+      S_multiplied <= -(R_voice_vol * (-R_wav_data)) when R_wav_data < 0 else R_voice_vol * R_wav_data;
     end generate;
     no_multiplier: if not C_multiplier generate
       S_multiplied <= (others => '0') when R_voice_vol = 0 else R_wav_data & S_voice_vol0;
