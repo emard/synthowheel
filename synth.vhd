@@ -30,6 +30,7 @@ generic
   C_wav_data_bits: integer := 12; -- bits signed wave amplitude resolution
   C_pa_data_bits: integer := 32; -- bits of data in phase accumulator BRAM
   C_amplify: integer := 0; -- bits louder output but reduces max number of voices by 2^n (clipping)
+  C_multiplier: boolean := true; -- true: true signed multiplier, false: simple off/on
   C_keyboard: boolean := false; -- false: CPU bus input, true: keyboard input (generates tone A4 (440 Hz) and few others)
   C_zero_cross: boolean := false; -- updates at zero cross (remove clicks) expense 1 extra BRAM
   C_out_bits: integer := 24 -- bits of signed PCM output data
@@ -230,13 +231,14 @@ architecture RTL of synth is
     signal R_voice, R_voice_prev, S_pa_write_addr: std_logic_vector(C_voice_addr_bits-1 downto 0); -- currently processed voice, destination of increment
     signal S_pa_read_data, S_pa_write_data: std_logic_vector(C_pa_data_bits-1 downto 0); -- current and next phase
     signal S_voice_vol, R_voice_vol: signed(C_voice_vol_bits-1 downto 0);
+    signal S_voice_vol0: signed(C_voice_vol_bits-1 downto 0) := (others => '0');
     signal S_avv_read_data, R_avv_write_data: std_logic_vector(C_voice_vol_bits+1 downto 0); -- voice volume + 2 bits zero-cross tracking
     signal S_pvv_read_data, S_pvv_write_data: std_logic_vector(C_voice_vol_bits-1 downto 0); -- voice volume data written by the bus
     signal S_vv_read_addr, S_pvv_write_addr, R_avv_write_addr: std_logic_vector(C_voice_addr_bits-1 downto 0); -- voice volume addr
     signal S_bus_vol_write, S_avv_write, S_pvv_write: std_logic;
     signal S_wav_data, R_wav_data: signed(C_wav_data_bits-1 downto 0);
     signal S_wav_zero_cross: std_logic;
-    signal R_multiplied: signed(C_voice_vol_bits+C_wav_data_bits-1 downto 0);
+    signal S_multiplied, R_multiplied: signed(C_voice_vol_bits+C_wav_data_bits-1 downto 0);
     signal R_accu: signed(C_accu_bits-1 downto 0);
     signal R_output: signed(C_out_bits-1 downto 0); 
 begin
@@ -365,6 +367,13 @@ begin
     -- waveform data reading (delayed 1 clock, address R_voice-1)
     S_wav_data <= C_wav_table(conv_integer(S_pa_read_data(C_pa_data_bits-1 downto C_pa_data_bits-C_wav_addr_bits)));
 
+    yes_multiplier: if C_multiplier generate
+      S_multiplied <= R_voice_vol * R_wav_data;
+    end generate;
+    no_multiplier: if not C_multiplier generate
+      S_multiplied <= (others => '0') when R_voice_vol = 0 else R_wav_data & S_voice_vol0;
+    end generate;
+
     -- multiply, store result to register and add register to accumulator
     process(clk)
     begin
@@ -374,7 +383,7 @@ begin
         -- registering inputs to the multiplier reduces noise at low volumes
         R_voice_vol <= S_voice_vol;
         R_wav_data <= S_wav_data;
-        R_multiplied <= R_voice_vol * R_wav_data;
+        R_multiplied <= S_multiplied; -- R_voice_vol * R_wav_data
         if conv_integer(R_voice) = 3 then -- output-ready R_accu appears with 3 clocks delay
           R_output <= R_accu(C_accu_bits-1 downto C_accu_bits-C_out_bits);
           R_accu <= (others => '0'); -- reset accumulator
