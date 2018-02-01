@@ -123,7 +123,8 @@ begin
       C_keyboard => true,
       C_zero_cross => true,
       C_out_bits => C_pcm_bits,
-      C_multiplier => false, -- signed multiplier disabled, doesn't infer properly on ECP5?
+      -- C_multiplier => true,
+      C_multiplier_sign_fix => true, -- ECP5 only: fix for incorrectly infered unsigned instead of signed multiplication
       C_amplify => 0
     )
     port map
