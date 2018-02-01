@@ -228,11 +228,11 @@ architecture RTL of synth is
     constant C_freq_table: T_freq_table := F_freq_table(C_voice_table_len, C_temperament, C_tuning_cents, C_tones_per_octave, C_cents_per_octave, 1, C_phase_const_bits);
     
     constant C_voice_max_volume: integer := 2**(C_voice_vol_bits-1)-1;
+    constant C_voice_vol0: signed(C_voice_vol_bits-1 downto 0) := (others => '0');
 
     signal R_voice, R_voice_prev, S_pa_write_addr: std_logic_vector(C_voice_addr_bits-1 downto 0); -- currently processed voice, destination of increment
     signal S_pa_read_data, S_pa_write_data: std_logic_vector(C_pa_data_bits-1 downto 0); -- current and next phase
     signal S_voice_vol, R_voice_vol: signed(C_voice_vol_bits-1 downto 0);
-    signal S_voice_vol0: signed(C_voice_vol_bits-1 downto 0) := (others => '0');
     signal S_avv_read_data, R_avv_write_data: std_logic_vector(C_voice_vol_bits+1 downto 0); -- voice volume + 2 bits zero-cross tracking
     signal S_pvv_read_data, S_pvv_write_data: std_logic_vector(C_voice_vol_bits-1 downto 0); -- voice volume data written by the bus
     signal S_vv_read_addr, S_pvv_write_addr, R_avv_write_addr: std_logic_vector(C_voice_addr_bits-1 downto 0); -- voice volume addr
@@ -376,7 +376,7 @@ begin
       S_multiplied <= -(R_voice_vol * (-R_wav_data)) when R_wav_data < 0 else R_voice_vol * R_wav_data;
     end generate;
     no_multiplier: if not C_multiplier generate
-      S_multiplied <= (others => '0') when R_voice_vol = 0 else R_wav_data & S_voice_vol0;
+      S_multiplied <= (others => '0') when R_voice_vol = 0 else R_wav_data & C_voice_vol0;
     end generate;
 
     -- multiply, store result to register and add register to accumulator
