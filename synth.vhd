@@ -1,4 +1,4 @@
--- RDS modulator with DBPSK
+-- Tonewheel synthesizer
 -- (c) Davor Jadrijevic
 -- LICENSE=BSD
 
