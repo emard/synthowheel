@@ -368,7 +368,7 @@ begin
     -- waveform data reading (delayed 1 clock, address R_voice-1)
     S_wav_data <= C_wav_table(conv_integer(S_pa_read_data(C_pa_data_bits-1 downto C_pa_data_bits-C_wav_addr_bits)));
 
-    yes_multiplier_normal: if C_multiplier_sign_fix and not C_multiplier_sign_fix generate
+    yes_multiplier_normal: if C_multiplier and not C_multiplier_sign_fix generate
       S_multiplied <= R_voice_vol * R_wav_data;
     end generate;
     yes_multiplier_sign_fix: if C_multiplier and C_multiplier_sign_fix generate
