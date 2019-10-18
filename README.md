@@ -4,10 +4,11 @@ True polyphonic additive synthesizer as parametric VHDL core with
 realtime performance.
 
 Array of 128 generators simultaneously plays waveform described as a weighted
-sum of 9 sinewave harmonics per generator, or any user-defined wave function.
+sum of 9 sinewave harmonics per note. Instead of sinewave, any other user-defined 
+wave function can be used.
 Each generator plays this waveform at different speed and volume, numerically 
-tuned over a full MIDI range of 10+ octaves with configurable meantones of
-quarter-comma temperament, equal temperament or user-defined
+tuned over a full MIDI range of 10+ octaves with configurable meantones with
+defaults of quarter-comma, Bach, Hammond, equal temperament or user-defined
 temperament in cents (1/1200).
 The time base is derived from the quartz oscillator with relative
 stability of 1E-5 so all tones will be stable and correct up to this
@@ -42,5 +43,5 @@ A4 has 0.0002 cents error. One octave has 1200 cents.
 
 # TODO
 
-[x] Listen on f32c
-[x] zero-cross volume update (no clicks)
+    [x] Integrate into f32c
+    [x] zero-cross volume update (no clicks)
