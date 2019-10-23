@@ -293,7 +293,7 @@ begin
       -- if CPU is not writing to the bus:
       -- detect volume zero-cross by tracking sign bit
       -- and update new volume value during the zero cross.
-      -- for zer-cross update, we need to provide voice address
+      -- for zero-cross update, we need to provide voice address
       -- previous than current voice address in order that the read data
       -- can be compared (fresh written volume = current volume) and
       -- written to the same address
